@@ -31,3 +31,5 @@ gradle/
 .vscode/
 build.gradle
 gradlew.bat
+.DS_Store
+```
