@@ -104,9 +104,9 @@ public class G019HW1 {
                     System.out.println("Not Outlier");
                 }
 
-                // for (Pair point2 : notOutliers) {
-                //     System.out.println(point2.toString());
-                // }
+                 for (Pair point2 : notOutliers) {
+                     System.out.println(point2.toString());
+                 }
             }
 
             int i = 0;
