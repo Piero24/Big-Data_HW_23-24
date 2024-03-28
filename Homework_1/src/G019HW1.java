@@ -10,8 +10,16 @@ import org.apache.spark.api.java.JavaRDD;
 import scala.Tuple2;
 
 public class G019HW1 {
+
+    /**
+     * Main method to read data from a file and perform outlier detection.
+     * 
+     * @param args Command-line arguments: filename, D, M, K
+     * @throws IOException if an I/O error occurs
+     */
     public static void main(String[] args) throws IOException {
 
+        // Check if filename is provided as command-line argument
         if (args.length < 1) {
             System.out.println("Usage: java Main <filename>");
             return;
@@ -30,7 +38,6 @@ public class G019HW1 {
                 if (coordinates.length == 2) {
                     double x = Double.parseDouble(coordinates[0]);
                     double y = Double.parseDouble(coordinates[1]);
-                    double z = 0;
                     points.add(new Pair(x, y));
                 }
             }
@@ -39,21 +46,20 @@ public class G019HW1 {
             return;
         }
 
-        // Print the points (just for verification)
-        // for (Pair point : points) {
-        //     System.out.println(point.toString());
-        // }
+        // Command-line arguments
         float D = Float.parseFloat(args[1]);
         int M = Integer.parseInt(args[2]);
         int K = Integer.parseInt(args[3]);
 
+        // Perform exact outlier detection
         myMethods.exactOutliers(points, D, M, K);
 
-        //
-        // Add the code here ...
-        //
+        // Additional code can be added here
     }
 
+    /**
+     * Represents a pair of double values.
+     */
     static class Pair {
 
         private double first;
@@ -74,15 +80,24 @@ public class G019HW1 {
         // Override toString() for readability (optional)
     }
 
+    /**
+     * Contains methods for outlier detection.
+     */
     static class myMethods {
 
+        /**
+         * Performs exact outlier detection.
+         * 
+         * @param data List of data points
+         * @param D Distance threshold
+         * @param M Minimum number of neighbors
+         * @param K Number of outliers to find
+         */
         public static void exactOutliers(ArrayList<Pair> data, float D, int M, int K) {
 
             ArrayList<Pair> count = new ArrayList<>();
 
             for (Pair point : data) {
-                // System.out.println(point.toString());
-
                 ArrayList<Pair> notOutliers = new ArrayList<>();
 
                 for (Pair point2 : data) {
@@ -103,10 +118,6 @@ public class G019HW1 {
                 } else {
                     System.out.println("Not Outlier");
                 }
-
-                // for (Pair point2 : notOutliers) {
-                //     System.out.println(point2.toString());
-                // } - Debugging
             }
 
             int i = 0;
@@ -118,15 +129,13 @@ public class G019HW1 {
                 }
                 break;
             }
-
         }
 
+        /**
+         * Performs MR (MapReduce) approximate outlier detection.
+         */
         public void mrApproxOutliers() {
-
-            //
             // Add the code here ...
-            //
-
         }
     }
 }
