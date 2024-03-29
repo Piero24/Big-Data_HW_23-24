@@ -5,11 +5,11 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.storage.StorageLevel;
+// import org.apache.spark.storage.StorageLevel;
 import scala.Tuple2;
 
-import java.io.File;
-import java.io.FileNotFoundException;
+// import java.io.File;
+// import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.*;
 
@@ -42,6 +42,9 @@ public class WordCountExample{
 
     // Read number of partitions
     int K = Integer.parseInt(args[0]);
+    
+    // Close the JavaSparkContext
+    sc.close();
 
     // Read input file and subdivide it into K random partitions
     JavaRDD<String> docs = sc.textFile(args[1]).repartition(K).cache();
