@@ -1,4 +1,4 @@
-// -Dspark.master="local[*]" G019HW1 ./Homework_1/TestN15-input.txt 0 2 3 2
+// -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 2 2 3 2
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -38,12 +38,6 @@ public class G019HW1 {
 
         // Read number of partitions
         int K1 = Integer.parseInt(args[4]);
-
-        // Build a for that print all the args to check if they are correct
-        for (int i = 0; i < args.length; i++) {
-            System.out.println("Args n°:" + i + "-->" + args[i]);
-        }
-
 
         // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         //
@@ -234,55 +228,26 @@ public class G019HW1 {
          * 
          */
 
+        // ** ATTENZIONE: D NON deve mai essere 0 altrimenti ritorna come unico valore: ((2147483647,2147483647),15)
+        // ** Se D impostato a zero dall'utente cosa facciamo? Accettiamo con 0 o mettiamo a 1 di default?
         double lam = D / (2 * Math.sqrt(2));
         
-        // ** NOTA: NON sono sicuro funzioni correttamente. quando eseguo il codice ritorna un solo punto ovvero: ((2147483647,2147483647),15)
-        //
-        //
         // ** STEP A: Transform RDD into RDD of non-empty cells with their counts
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = pairsRDD.mapToPair(pair -> {
             Tuple2<Integer, Integer> cellId = new Tuple2<>((int) (pair.first / lam), (int) (pair.second / lam));
             return new Tuple2<>(cellId, 1);
         }).reduceByKey((count1, count2) -> count1 + count2)
         .filter(pair -> pair._2() > 0); // Filter out empty cells
-        
-        return cellCountsRDD;
+
+
+        // ** STEP B:
+
+        //
+        // ADD YOUR CODE HERE FOR THE STEP B
         // 
+        
 
-        // for (Pair point : data) {
-        //     int i = (int) Math.floor(point.first / lam);
-        //     int j = (int) Math.floor(point.second / lam);
-
-        //     // R3 (Cp)
-        //     int maxR3X = (int) (i*2*lam);
-        //     int maxR3Y = (int) (j*2*lam);
-
-        //     int minR3X = (int) (i*(-1)*lam);
-        //     int minR3Y = (int) (j*(-1)*lam);
-
-        //     // R7 (Cp)
-        //     int maxR7X = (int) (i*4*lam);
-        //     int maxR7Y = (int) (j*4*lam);
-
-        //     int minR7X = (int) (i*(-3)*lam);
-        //     int minR7Y = (int) (j*(-3)*lam);
-
-        //     for (Pair point2 : data) {
-        //         if (point2.first <= maxR3X && point2.first >= minR3X && point2.second <= maxR3Y && point2.second >= minR3Y) {
-        //             // Inside R3
-        //             continue;
-
-        //         } else if (point2.first <= maxR7X && point2.first >= minR7X && point2.second <= maxR7Y && point2.second >= minR7Y) {
-        //             // Inside R7 but not R3
-        //             continue;
-
-        //         } else {
-        //             // Out of R7 and R3
-        //             continue;
-        //         }
-                
-        //     }
-        // }
+        return cellCountsRDD;
     }
 
     /**
