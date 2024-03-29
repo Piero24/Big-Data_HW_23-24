@@ -239,16 +239,36 @@ public class G019HW1 {
         }).reduceByKey((count1, count2) -> count1 + count2)
         .filter(pair -> pair._2() > 0); // Filter out empty cells
 
-
         // ** STEP B:
 
         //
         // ADD YOUR CODE HERE FOR THE STEP B
         // 
+
+        // To be changed with the correct values (0 is only placeholder)
+        int y_p = 0;
+        int x_p = 0;
+
+        long threshold_x_low_N3 = (long) (x_p - lam);
+        long threshold_x_high_N3 = (long) (x_p + (lam * 2));
+        long threshold_y_low_N3 = (long) (y_p - lam);
+        long threshold_y_high_N3 = (long) (y_p + (lam * 2));
+
+        long threshold_x_low_N7 = (long) ((x_p - (3* lam)));
+        long threshold_x_high_N7 = (long) (x_p + (lam * 4));
+        long threshold_y_low_N7 = (long) (y_p - (3* lam));
+        long threshold_y_high_N7 = (long) (y_p + (lam * 4));
+
+        // filter all pair with x and y in the range of the cell
+        JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N3 && pair._1()._1() <= threshold_x_high_N3 && pair._1()._2() >= threshold_y_low_N3 && pair._1()._2() <= threshold_y_high_N3);
+        JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N7 && pair._1()._1() <= threshold_x_high_N7 && pair._1()._2() >= threshold_y_low_N7 && pair._1()._2() <= threshold_y_high_N7);
+
+        
         
 
         return cellCountsRDD;
     }
+
 
     /**
      * Represents a pair of double values.
