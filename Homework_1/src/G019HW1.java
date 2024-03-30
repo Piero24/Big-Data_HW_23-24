@@ -91,7 +91,8 @@ public class G019HW1 {
         String methdSelected;
         long startTime = System.currentTimeMillis();
 
-        if (totalPoints <= 200000) {
+        //if (totalPoints <= 200000) {
+        if (false) {
             methdSelected = "ExactOutliers";
             //: NOTE: This method (inputPoints.collect()) on TestN15-input.txt with D=1.0 M=3 K=9 L=2 takes 13/15ms we need to stay under 7ms
             List<Tuple2<Float, Float>> listOfPoints = inputPoints.collect();
