@@ -1,9 +1,8 @@
-// -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 2 2 3 2
+// -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 1.0 3 9 2
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -12,6 +11,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 // import org.apache.spark.rdd.RDD;
 
 import scala.Tuple2;
+
 
 public class G019HW1 {
 
@@ -24,58 +24,23 @@ public class G019HW1 {
     public static void main(String[] args) throws IOException {
 
         // Check if filename is provided as command-line argument
-        if (args.length < 1) {
-            System.out.println("Usage: java Main <filename>");
+        if (args.length < 5) {
+            System.out.println("Please provide filename, D, M, K, and L as command-line arguments");
             return;
         }
 
-        // Command-line arguments
+        // File Name
         String filename = args[0];
-
+        // Distance Threshold 
         float D = Float.parseFloat(args[1]);
+        // Number of Nearest Neighbors
         int M = Integer.parseInt(args[2]);
+        // Number of Neighbors to Check
         int K = Integer.parseInt(args[3]);
+        // Number of Partitions
+        int L = Integer.parseInt(args[4]);
 
-        // Read number of partitions
-        int K1 = Integer.parseInt(args[4]);
-
-        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        //
-        // START FIRST TASK
-        //
-        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-
-        ArrayList<Pair> points = new ArrayList<>();
-
-        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
-            String line;
-            // Read lines from the file until the end is reached
-            while ((line = br.readLine()) != null) {
-
-                String[] coordinates = line.split(",");
-
-                if (coordinates.length == 2) {
-                    double x = Double.parseDouble(coordinates[0]);
-                    double y = Double.parseDouble(coordinates[1]);
-                    points.add(new Pair(x, y));
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Error reading the file: " + e.getMessage());
-            return;
-        }
-
-        // Perform exact outlier detection
-        // exactOutliers(points, D, M, K);
-
-        // Additional code can be added here
-
-        
-        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        //
-        // START SECOND TASK
-        //
-        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        System.out.println(filename + " D=" + D + " M=" + M + " K=" + K + " L=" + + L);
 
         // * * CHAT GPT EXPLENATION
         // Qui si crea un oggetto SparkConf per configurare l'applicazione Spark. 
@@ -97,71 +62,84 @@ public class G019HW1 {
         // Qui si legge un file di testo tramite sc.textFile(filename), dove filename è il percorso del file 
         // passato come argomento al programma. textFile legge il file di testo e lo converte in un JavaRDD 
         // di stringhe, dove ogni riga del file è un elemento del RDD.
-        //
-        // repartition(K1) redistribuisce i dati in K1 partizioni casuali. 
+        JavaRDD<String> rawData = sc.textFile(filename);
+
+        // * * CHAT GPT EXPLENATION
+        // Ogni riga del RDD inputRDD viene mappata a un tupla di float. 
+        // La funzione map è applicata a ciascun elemento del RDD. La funzione lambda riceve ogni riga come input, 
+        // la suddivide in base al carattere "," (presumibilmente il file contiene coppie di valori separati da virgola), 
+        // quindi converte le due parti in numeri decimali e restituisce una nuova tupla.
+        JavaRDD<Tuple2<Float, Float>> inputPoints = rawData.map(line -> {
+            String[] parts = line.split(",");
+            float x = Float.parseFloat(parts[0]);
+            float y = Float.parseFloat(parts[1]);
+            return new Tuple2<>(x, y);
+        });
+
+        // * * CHAT GPT EXPLENATION
+        // repartition(L) redistribuisce i dati in L partizioni casuali. 
         // Questo è utile per il parallelismo e l'ottimizzazione delle prestazioni, specialmente se il file è 
         // grande e si desidera sfruttare al meglio le risorse del cluster.
         //
         // cache() memorizza il RDD in memoria per un accesso rapido, che può migliorare 
         // le prestazioni se il RDD viene utilizzato più volte.
-        JavaRDD<String> inputRDD = sc.textFile(filename).repartition(K1).cache();
-
-        // * * CHAT GPT EXPLENATION
-        // Ogni riga del RDD inputRDD viene mappata a un oggetto Pair. 
-        // La funzione map è applicata a ciascun elemento del RDD. La funzione lambda riceve ogni riga come input, 
-        // la suddivide in base al carattere "," (presumibilmente il file contiene coppie di valori separati da virgola), 
-        // quindi converte le due parti in numeri decimali e restituisce un nuovo oggetto Pair.
-        // Si presuppone che ci sia una classe Pair definita altrove nel codice, contenente due campi di 
-        // tipo double (o qualche altro tipo numerico).
-        JavaRDD<Pair> pairsRDD = inputRDD.map(line -> {
-            String[] parts = line.split(",");
-            double first = Double.parseDouble(parts[0]);
-            double second = Double.parseDouble(parts[1]);
-            return new Pair(first, second);
-        });
-
-        // To print the points
-        // pairsRDD.foreach(point -> System.out.println("(" + point.first + ", " + point.second + ")"));
-
-        JavaPairRDD<Tuple2<Integer, Integer>, Integer> resultRDD = MRApproxOutliers(pairsRDD, D, M, K);
+        inputPoints = inputPoints.repartition(L).cache();
         
-        // To print the points
-        resultRDD.collect().forEach(System.out::println);
+        long totalPoints = inputPoints.count();
+        System.out.println("Number of points: " + totalPoints);
+        
+        String methdSelected;
+        long startTime = System.currentTimeMillis();
+
+        if (totalPoints <= 200000) {
+            methdSelected = "ExactOutliers";
+            //: NOTE: This method (inputPoints.collect()) on TestN15-input.txt with D=1.0 M=3 K=9 L=2 takes 13/15ms we need to stay under 7ms
+            List<Tuple2<Float, Float>> listOfPoints = inputPoints.collect();
+            exactOutliers(listOfPoints, D, M, K);
+
+        } else {
+            methdSelected = "MRApproxOutliers";
+
+            // To print the points
+            // pairsRDD.foreach(point -> System.out.println("(" + point.first + ", " + point.second + ")"));
+
+            // MRApproxOutliers(inputPoints, D, M, K);
+            JavaPairRDD<Tuple2<Integer, Integer>, Integer> resultRDD = MRApproxOutliers(inputPoints, D, M, K);
+
+            // To print the points
+            resultRDD.collect().forEach(System.out::println);
+        }
+
+        long endTime = System.currentTimeMillis();
+        long runningTime = endTime - startTime;
+
+        System.out.println("Running time of " + methdSelected + " = " + runningTime + " ms");
 
         // Close the JavaSparkContext
         sc.close();
-
-        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        //
-        // START THIRD TASK
-        //
-        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-
-
-        //
-        // ADD YOUR CODE HERE FOR THE THIRD TASK
-        // 
     }
 
     /**
      * Performs exact outlier detection.
      * 
-     * @param data List of data points
+     * @param listOfPoints List of data points
      * @param D Distance threshold
      * @param M Minimum number of neighbors
      * @param K Number of outliers to find
      */
-    public static void exactOutliers(ArrayList<Pair> data, float D, int M, int K) {
+    public static void exactOutliers(List<Tuple2<Float, Float>> listOfPoints, float D, int M, int K) {
+        List<Tuple2<Float, Float>> count = new ArrayList<>();
 
-        ArrayList<Pair> count = new ArrayList<>();
+        for (Tuple2<Float, Float> point : listOfPoints) {
+            List<Tuple2<Float, Float>> notOutliers = new ArrayList<>();
 
-        for (Pair point : data) {
-            ArrayList<Pair> notOutliers = new ArrayList<>();
+            for (Tuple2<Float, Float> point2 : listOfPoints) {
 
-            for (Pair point2 : data) {
+                if (notOutliers.size() > M) break;
+
                 // Calculate the distance between point and point2
-                double distanceX = Math.pow(point.first - point2.first, 2);
-                double distanceY = Math.pow(point.second - point2.second, 2);
+                double distanceX = Math.pow(point._1() - point2._1(), 2);
+                double distanceY = Math.pow(point._2() - point2._2(), 2);
                 double distance = Math.sqrt(distanceX + distanceY);
 
                 if (distance < D) {
@@ -170,18 +148,16 @@ public class G019HW1 {
             }
 
             if (notOutliers.size() < M + 1) {
-                System.out.println("Outlier: " + point.toString());
                 count.add(point);
-
-            } else {
-                System.out.println("Not Outlier");
             }
         }
 
+        System.out.println("Number of Outliers = " + count.size());
+
         int i = 0;
-        for (Pair point2 : count) {
+        for (Tuple2<Float, Float> point2 : count) {
             if (i < K) {
-                System.out.println(point2.toString());
+                System.out.println("Point: (" + point2._1() + ", " + point2._2() + ")");
                 i++;
                 continue;
             }
@@ -191,14 +167,15 @@ public class G019HW1 {
 
     /**
      * Performs MR (MapReduce) approximate outlier detection.
+     * :
+     * NOTE: When completed the func must become void
      * 
      * @param pairsRDD RDD of Pair objects
      * @param D Distance threshold
      * @param M Minimum number of neighbors
      * @param K Number of outliers to find
      */
-    public static JavaPairRDD<Tuple2<Integer, Integer>, Integer> MRApproxOutliers(JavaRDD<Pair> pairsRDD, float D, int M, int K) {
-
+    public static JavaPairRDD<Tuple2<Integer, Integer>, Integer> MRApproxOutliers(JavaRDD<Tuple2<Float, Float>> inputPoints, float D, int M, int K) {
         /**
          * * CHAT GPT EXPLENATION
          * 
@@ -233,17 +210,36 @@ public class G019HW1 {
         double lam = D / (2 * Math.sqrt(2));
         
         // ** STEP A: Transform RDD into RDD of non-empty cells with their counts
-        JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = pairsRDD.mapToPair(pair -> {
-            Tuple2<Integer, Integer> cellId = new Tuple2<>((int) (pair.first / lam), (int) (pair.second / lam));
+        JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = inputPoints.mapToPair(pair -> {
+            Tuple2<Integer, Integer> cellId = new Tuple2<>((int) (pair._1() / lam), (int) (pair._2() / lam));
             return new Tuple2<>(cellId, 1);
         }).reduceByKey((count1, count2) -> count1 + count2)
         .filter(pair -> pair._2() > 0); // Filter out empty cells
 
-        // ** STEP B:
 
-        //
-        // ADD YOUR CODE HERE FOR THE STEP B
-        // 
+        //? Non capisco se ste cose che ho aggiunto sono utili o meno (da rivedere)
+        // // ** STEP B: Filter pairs within N3 and N7 range of the cell
+        // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> {
+        //     int x = pair._1()._1();
+        //     int y = pair._1()._2();
+        //     long threshold_x_low_N3 = (long) (x - lam);
+        //     long threshold_x_high_N3 = (long) (x + (lam * 2));
+        //     long threshold_y_low_N3 = (long) (y - lam);
+        //     long threshold_y_high_N3 = (long) (y + (lam * 2));
+        //     return pair._1()._1() >= threshold_x_low_N3 && pair._1()._1() <= threshold_x_high_N3 &&
+        //             pair._1()._2() >= threshold_y_low_N3 && pair._1()._2() <= threshold_y_high_N3;
+        // });
+
+        // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> {
+        //     int x = pair._1()._1();
+        //     int y = pair._1()._2();
+        //     long threshold_x_low_N7 = (long) (x - (3 * lam));
+        //     long threshold_x_high_N7 = (long) (x + (lam * 4));
+        //     long threshold_y_low_N7 = (long) (y - (3 * lam));
+        //     long threshold_y_high_N7 = (long) (y + (lam * 4));
+        //     return pair._1()._1() >= threshold_x_low_N7 && pair._1()._1() <= threshold_x_high_N7 &&
+        //             pair._1()._2() >= threshold_y_low_N7 && pair._1()._2() <= threshold_y_high_N7;
+        // });
 
         // To be changed with the correct values (0 is only placeholder)
         int y_p = 0;
@@ -263,29 +259,6 @@ public class G019HW1 {
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N3 && pair._1()._1() <= threshold_x_high_N3 && pair._1()._2() >= threshold_y_low_N3 && pair._1()._2() <= threshold_y_high_N3);
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N7 && pair._1()._1() <= threshold_x_high_N7 && pair._1()._2() >= threshold_y_low_N7 && pair._1()._2() <= threshold_y_high_N7);
 
-        
-        
-
         return cellCountsRDD;
-    }
-
-
-    /**
-     * Represents a pair of double values.
-     */
-    static class Pair {
-
-        private double first;
-        private double second;
-
-        public Pair(double first, double second) {
-            this.first = first;
-            this.second = second;
-        }
-
-        @Override
-        public String toString() {
-            return "(" + first + ", " + second + ")";
-        }
     }
 }
