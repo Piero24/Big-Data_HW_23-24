@@ -84,7 +84,8 @@ public class G019HW1 {
         // cache() memorizza il RDD in memoria per un accesso rapido, che può migliorare 
         // le prestazioni se il RDD viene utilizzato più volte.
         inputPoints = inputPoints.repartition(L).cache();
-        
+
+        clearScreen();
         long totalPoints = inputPoints.count();
         System.out.println("Number of points: " + totalPoints);
         
@@ -108,7 +109,7 @@ public class G019HW1 {
             JavaPairRDD<Tuple2<Integer, Integer>, Integer> resultRDD = MRApproxOutliers(inputPoints, D, M, K);
 
             // To print the points
-            resultRDD.collect().forEach(System.out::println);
+            // resultRDD.collect().forEach(System.out::println);
         }
 
         long endTime = System.currentTimeMillis();
@@ -118,6 +119,15 @@ public class G019HW1 {
 
         // Close the JavaSparkContext
         sc.close();
+    }
+
+    /**
+     * Clears the console screen.
+     * 
+     */
+    public static void clearScreen() {
+        System.out.print("\033[H\033[2J");
+        System.out.flush();
     }
 
     /**
@@ -218,6 +228,87 @@ public class G019HW1 {
         .filter(pair -> pair._2() > 0); // Filter out empty cells
 
 
+        // for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : cellCountsRDD.collect()) {
+        //     //System.out.println(cell);
+
+        //     int x = cell._1()._1();
+        //     int y = cell._1()._2();
+        //     int num_points = cell._2();
+        //     float threshold_x_low_N7 = (float) (x - (3 * lam));
+        //     float threshold_x_high_N7 = (float) (x + (lam * 4));
+        //     float threshold_y_low_N7 = (float) (y - (3 * lam));
+        //     float threshold_y_high_N7 = (float) (y + (lam * 4));
+            
+        //     JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> {
+        //         int pairX = pair._1()._1();
+        //         int pairY = pair._1()._2();
+        //         //num_points +=pair._2();
+        //         return pairX != x && pairY != y &&
+        //                 pairX >= threshold_x_low_N7 && pairX <= threshold_x_high_N7 &&
+        //                 pairY >= threshold_y_low_N7 && pairY <= threshold_y_high_N7;
+        //     });
+        //     if (num_points>M){System.out.println("Non-outlier point: " + cell);}
+        //     if (cellCountsRDD_N3.count() > M) {
+        //         // System.out.println("high x: " + threshold_x_high_N3+"\n low x: " + threshold_x_low_N3);
+        //         // System.out.println("high y: " + threshold_y_high_N3+"\n low y: " + threshold_y_low_N3);
+        //         System.out.println("Current Central point: " + cell);
+
+        //         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell_N3 : cellCountsRDD_N3.collect()) {
+        //             System.out.println("Point inside the reagion N3" + cell_N3);
+        //         }
+
+        //     }
+
+        //     System.out.println("-------------------------------------------------------------------");
+
+        // }
+
+
+        /*
+        Number of points: 15
+        ((3,14),2)
+        ((4,10),1)
+        ((2,3),1)
+        ((9,13),1)
+        ((1,2),1)
+        ((11,11),1)
+        ((12,12),1)
+        ((1,11),1)
+        ((2,2),1)
+        ((4,9),1)
+        ((4,3),4)
+        */
+
+        for (Tuple2<Tuple2<Integer, Integer>, Integer> cell2 : cellCountsRDD.collect()) {
+            int x = cell2._1()._1();
+            int y = cell2._1()._2();
+            
+            long threshold_x_low_N7 = (long) (x - (3 * lam));
+            long threshold_x_high_N7 = (long) (x + (lam * 4));
+            long threshold_y_low_N7 = (long) (y - (3 * lam));
+            long threshold_y_high_N7 = (long) (y + (lam * 4));
+            
+            JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> {
+                int pair_x = pair._1()._1();
+                int pair_y = pair._1()._2();
+                return pair_x >= threshold_x_low_N7 && pair_x <= threshold_x_high_N7 &&
+                       pair_y >= threshold_y_low_N7 && pair_y <= threshold_y_high_N7;
+            });
+            
+            int sum = cellCountsRDD_N7.map(Tuple2::_2).reduce(Integer::sum);
+            
+            if (sum > M) {
+                System.out.println("Central point: " + cell2);
+                System.out.println("Number of points in N7: " + sum);
+                System.out.println("-------------------------------------------------------------------");
+            }
+        }
+        
+
+
+        
+
+
         //? Non capisco se ste cose che ho aggiunto sono utili o meno (da rivedere)
         // // ** STEP B: Filter pairs within N3 and N7 range of the cell
         // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> {
@@ -243,23 +334,24 @@ public class G019HW1 {
         // });
 
         // To be changed with the correct values (0 is only placeholder)
-        int y_p = 0;
-        int x_p = 0;
+        // int y_p = 0;
+        // int x_p = 0;
 
-        long threshold_x_low_N3 = (long) (x_p - lam);
-        long threshold_x_high_N3 = (long) (x_p + (lam * 2));
-        long threshold_y_low_N3 = (long) (y_p - lam);
-        long threshold_y_high_N3 = (long) (y_p + (lam * 2));
+        // long threshold_x_low_N3 = (long) (x_p - lam);
+        // long threshold_x_high_N3 = (long) (x_p + (lam * 2));
+        // long threshold_y_low_N3 = (long) (y_p - lam);
+        // long threshold_y_high_N3 = (long) (y_p + (lam * 2));
 
-        long threshold_x_low_N7 = (long) ((x_p - (3* lam)));
-        long threshold_x_high_N7 = (long) (x_p + (lam * 4));
-        long threshold_y_low_N7 = (long) (y_p - (3* lam));
-        long threshold_y_high_N7 = (long) (y_p + (lam * 4));
+        // long threshold_x_low_N7 = (long) ((x_p - (3* lam)));
+        // long threshold_x_high_N7 = (long) (x_p + (lam * 4));
+        // long threshold_y_low_N7 = (long) (y_p - (3* lam));
+        // long threshold_y_high_N7 = (long) (y_p + (lam * 4));
 
-        // filter all pair with x and y in the range of the cell
-        JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N3 && pair._1()._1() <= threshold_x_high_N3 && pair._1()._2() >= threshold_y_low_N3 && pair._1()._2() <= threshold_y_high_N3);
-        JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N7 && pair._1()._1() <= threshold_x_high_N7 && pair._1()._2() >= threshold_y_low_N7 && pair._1()._2() <= threshold_y_high_N7);
+        // // filter all pair with x and y in the range of the cell
+        // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N3 && pair._1()._1() <= threshold_x_high_N3 && pair._1()._2() >= threshold_y_low_N3 && pair._1()._2() <= threshold_y_high_N3);
+        // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N7 && pair._1()._1() <= threshold_x_high_N7 && pair._1()._2() >= threshold_y_low_N7 && pair._1()._2() <= threshold_y_high_N7);
 
         return cellCountsRDD;
     }
+    
 }
