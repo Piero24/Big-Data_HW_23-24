@@ -1,5 +1,5 @@
-// -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 1.0 3 9 2
-// -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 5 2
+// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 1.0 3 9 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 5 2
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -9,10 +9,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-// import org.apache.spark.rdd.RDD;
 
 import scala.Tuple2;
-
 
 public class G019HW1 {
 
@@ -61,34 +59,29 @@ public class G019HW1 {
 
         long totalPoints = inputPoints.count();
         System.out.println("Number of points: " + totalPoints);
-        
-        String methdSelected;
-        long startTime = System.currentTimeMillis();
 
-        //if (totalPoints <= 200000) {
-        if (false) {
-            methdSelected = "ExactOutliers";
+        if (totalPoints <= 200000) {
+
+            long startTime = System.currentTimeMillis();
+
             //: NOTE: This method (inputPoints.collect()) on TestN15-input.txt with D=1.0 M=3 K=9 L=2 takes 13/15ms we need to stay under 7ms
             List<Tuple2<Float, Float>> listOfPoints = inputPoints.collect();
             exactOutliers(listOfPoints, D, M, K);
 
-        } else {
-            methdSelected = "MRApproxOutliers";
+            long endTime = System.currentTimeMillis();
+            long runningTime = endTime - startTime;
+            System.out.println("Running time of ExactOutliers = " + runningTime + " ms");
 
-            // To print the points
-            // pairsRDD.foreach(point -> System.out.println("(" + point.first + ", " + point.second + ")"));
-
-            // MRApproxOutliers(inputPoints, D, M, K);
-            JavaPairRDD<Tuple2<Integer, Integer>, Integer> resultRDD = MRApproxOutliers(inputPoints, D, M, K);
-
-            // To print the points
-            // resultRDD.collect().forEach(System.out::println);
         }
+
+        long startTime = System.currentTimeMillis();
+
+        MRApproxOutliers(inputPoints, D, M, K);
 
         long endTime = System.currentTimeMillis();
         long runningTime = endTime - startTime;
 
-        System.out.println("Running time of " + methdSelected + " = " + runningTime + " ms");
+        System.out.println("Running time of MRApproxOutliers = " + runningTime + " ms");
 
         // Close the JavaSparkContext
         sc.close();
@@ -151,15 +144,14 @@ public class G019HW1 {
 
     /**
      * Performs MR (MapReduce) approximate outlier detection.
-     * :
-     * NOTE: When completed the func must become void
      * 
      * @param pairsRDD RDD of Pair objects
      * @param D Distance threshold
      * @param M Minimum number of neighbors
      * @param K Number of outliers to find
      */
-    public static JavaPairRDD<Tuple2<Integer, Integer>, Integer> MRApproxOutliers(JavaRDD<Tuple2<Float, Float>> inputPoints, float D, int M, int K) {
+    
+    public static void MRApproxOutliers(JavaRDD<Tuple2<Float, Float>> inputPoints, float D, int M, int K) {
 
         long totalPoints = inputPoints.count();
         double lam = D / (2 * Math.sqrt(2));
@@ -233,8 +225,6 @@ public class G019HW1 {
             }
             break;
         }
-
-        return cellCountsRDD;
     }
     
 }
