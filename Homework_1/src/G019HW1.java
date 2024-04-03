@@ -1,4 +1,5 @@
 // -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 1.0 3 9 2
+// -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 5 2
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,35 +41,12 @@ public class G019HW1 {
         // Number of Partitions
         int L = Integer.parseInt(args[4]);
 
-        System.out.println(filename + " D=" + D + " M=" + M + " K=" + K + " L=" + + L);
-
-        // * * CHAT GPT EXPLENATION
-        // Qui si crea un oggetto SparkConf per configurare l'applicazione Spark. 
-        // true passato al costruttore significa che l'applicazione è in modalità master 
-        // locale (utilizzando tutti i thread disponibili sulla macchina). 
-        // Il metodo setAppName("G019HW1") imposta il nome dell'applicazione a "G019HW1".
         SparkConf conf = new SparkConf(true).setAppName("G019HW1");
-        // * * CHAT GPT EXPLENATION
-        // Viene creato un oggetto JavaSparkContext che rappresenta l'interfaccia principale 
-        //per interagire con Spark. Viene passata la configurazione creata in precedenza.
         JavaSparkContext sc = new JavaSparkContext(conf);
-        // * * CHAT GPT EXPLENATION
-        // Questo imposta il livello di registro per Spark a "WARN", il che significa che 
-        // verranno registrati solo i messaggi di avviso e di livello superiore. 
-        // Ciò aiuta a mantenere puliti i log eliminando i messaggi di debug.
         sc.setLogLevel("WARN");
 
-        // * * CHAT GPT EXPLENATION
-        // Qui si legge un file di testo tramite sc.textFile(filename), dove filename è il percorso del file 
-        // passato come argomento al programma. textFile legge il file di testo e lo converte in un JavaRDD 
-        // di stringhe, dove ogni riga del file è un elemento del RDD.
         JavaRDD<String> rawData = sc.textFile(filename);
 
-        // * * CHAT GPT EXPLENATION
-        // Ogni riga del RDD inputRDD viene mappata a un tupla di float. 
-        // La funzione map è applicata a ciascun elemento del RDD. La funzione lambda riceve ogni riga come input, 
-        // la suddivide in base al carattere "," (presumibilmente il file contiene coppie di valori separati da virgola), 
-        // quindi converte le due parti in numeri decimali e restituisce una nuova tupla.
         JavaRDD<Tuple2<Float, Float>> inputPoints = rawData.map(line -> {
             String[] parts = line.split(",");
             float x = Float.parseFloat(parts[0]);
@@ -76,16 +54,11 @@ public class G019HW1 {
             return new Tuple2<>(x, y);
         });
 
-        // * * CHAT GPT EXPLENATION
-        // repartition(L) redistribuisce i dati in L partizioni casuali. 
-        // Questo è utile per il parallelismo e l'ottimizzazione delle prestazioni, specialmente se il file è 
-        // grande e si desidera sfruttare al meglio le risorse del cluster.
-        //
-        // cache() memorizza il RDD in memoria per un accesso rapido, che può migliorare 
-        // le prestazioni se il RDD viene utilizzato più volte.
         inputPoints = inputPoints.repartition(L).cache();
 
         clearScreen();
+        System.out.println(filename + " D=" + D + " M=" + M + " K=" + K + " L=" + + L);
+
         long totalPoints = inputPoints.count();
         System.out.println("Number of points: " + totalPoints);
         
@@ -187,169 +160,79 @@ public class G019HW1 {
      * @param K Number of outliers to find
      */
     public static JavaPairRDD<Tuple2<Integer, Integer>, Integer> MRApproxOutliers(JavaRDD<Tuple2<Float, Float>> inputPoints, float D, int M, int K) {
-        /**
-         * * CHAT GPT EXPLENATION
-         * 
-         * * JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = pairsRDD.mapToPair(pair -> { ... }):
-         * 
-         * Qui, ogni elemento del RDD pairsRDD viene mappato a una coppia chiave-valore dove la chiave è un oggetto Tuple2<Integer, Integer> 
-         * rappresentante le coordinate della cella (ottenute dividendo le coordinate del punto per D e trasformandole in interi) e il valore è 1, 
-         * indicando la presenza di un punto nella cella.
-         * 
-         * * mapToPair
-         * 
-         * Utilizzato perché si desidera trasformare ogni elemento in un elemento chiave-valore.
-         * 
-         * * .reduceByKey((count1, count2) -> count1 + count2):
-         * 
-         * Dopodiché, si esegue un'operazione di riduzione per aggregare il conteggio delle celle con lo stesso identificatore. 
-         * Questo significa che si sommano i valori associati a ogni chiave, in modo da ottenere il conteggio totale delle celle.
-         * 
-         * La lambda count1 + count2 specifica come combinare i valori associati a una stessa chiave.
-         * 
-         * * .filter(pair -> pair._2() > 0):
-         * 
-         * Infine, si filtra il risultato per rimuovere le celle vuote. Qui, pair._2() rappresenta il valore associato 
-         * a ogni chiave nella RDD risultante, e si controlla se è maggiore di zero.
-         * 
-         * La RDD risultante, cellCountsRDD, contiene le celle non vuote come chiavi e il loro conteggio come valore.
-         * 
-         */
 
-        // ** ATTENZIONE: D NON deve mai essere 0 altrimenti ritorna come unico valore: ((2147483647,2147483647),15)
-        // ** Se D impostato a zero dall'utente cosa facciamo? Accettiamo con 0 o mettiamo a 1 di default?
+        long totalPoints = inputPoints.count();
         double lam = D / (2 * Math.sqrt(2));
         
         // ** STEP A: Transform RDD into RDD of non-empty cells with their counts
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = inputPoints.mapToPair(pair -> {
-            Tuple2<Integer, Integer> cellId = new Tuple2<>((int) (pair._1() / lam), (int) (pair._2() / lam));
+            Tuple2<Integer, Integer> cellId = new Tuple2<>((int) Math.floor(pair._1() / lam), (int) Math.floor(pair._2() / lam));
             return new Tuple2<>(cellId, 1);
         }).reduceByKey((count1, count2) -> count1 + count2)
         .filter(pair -> pair._2() > 0); // Filter out empty cells
 
-
-        // for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : cellCountsRDD.collect()) {
-        //     //System.out.println(cell);
-
-        //     int x = cell._1()._1();
-        //     int y = cell._1()._2();
-        //     int num_points = cell._2();
-        //     float threshold_x_low_N7 = (float) (x - (3 * lam));
-        //     float threshold_x_high_N7 = (float) (x + (lam * 4));
-        //     float threshold_y_low_N7 = (float) (y - (3 * lam));
-        //     float threshold_y_high_N7 = (float) (y + (lam * 4));
-            
-        //     JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> {
-        //         int pairX = pair._1()._1();
-        //         int pairY = pair._1()._2();
-        //         //num_points +=pair._2();
-        //         return pairX != x && pairY != y &&
-        //                 pairX >= threshold_x_low_N7 && pairX <= threshold_x_high_N7 &&
-        //                 pairY >= threshold_y_low_N7 && pairY <= threshold_y_high_N7;
-        //     });
-        //     if (num_points>M){System.out.println("Non-outlier point: " + cell);}
-        //     if (cellCountsRDD_N3.count() > M) {
-        //         // System.out.println("high x: " + threshold_x_high_N3+"\n low x: " + threshold_x_low_N3);
-        //         // System.out.println("high y: " + threshold_y_high_N3+"\n low y: " + threshold_y_low_N3);
-        //         System.out.println("Current Central point: " + cell);
-
-        //         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell_N3 : cellCountsRDD_N3.collect()) {
-        //             System.out.println("Point inside the reagion N3" + cell_N3);
-        //         }
-
-        //     }
-
-        //     System.out.println("-------------------------------------------------------------------");
-
-        // }
-
-
-        /*
-        Number of points: 15
-        ((3,14),2)
-        ((4,10),1)
-        ((2,3),1)
-        ((9,13),1)
-        ((1,2),1)
-        ((11,11),1)
-        ((12,12),1)
-        ((1,11),1)
-        ((2,2),1)
-        ((4,9),1)
-        ((4,3),4)
-        */
-
+        int insideR7 = 0;
+        int insideR3 = 0;
+        
+        // ** STEP B: Check each cell for outliers
         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell2 : cellCountsRDD.collect()) {
             int x = cell2._1()._1();
             int y = cell2._1()._2();
             
-            long threshold_x_low_N7 = (long) (x - (3 * lam));
-            long threshold_x_high_N7 = (long) (x + (lam * 4));
-            long threshold_y_low_N7 = (long) (y - (3 * lam));
-            long threshold_y_high_N7 = (long) (y + (lam * 4));
+            int minX7 = x - 3;
+            int maxX7 = x + 3;
+            int minY7 = y - 3;
+            int maxY7 = y + 3;
+
+            int minX3 = x - 1;
+            int maxX3 = x + 1;
+            int minY3 = y - 1;
+            int maxY3 = y + 1;
             
+            // Filter neighboring cells
             JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> {
                 int pair_x = pair._1()._1();
                 int pair_y = pair._1()._2();
-                return pair_x >= threshold_x_low_N7 && pair_x <= threshold_x_high_N7 &&
-                       pair_y >= threshold_y_low_N7 && pair_y <= threshold_y_high_N7;
+                
+                return pair_x >= minX7 && pair_x <= maxX7 && pair_y >= minY7 && pair_y <= maxY7;
+            });
+
+            JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> {
+                int pair_x = pair._1()._1();
+                int pair_y = pair._1()._2();
+                
+                return pair_x >= minX3 && pair_x <= maxX3 && pair_y >= minY3 && pair_y <= maxY3;
             });
             
-            int sum = cellCountsRDD_N7.map(Tuple2::_2).reduce(Integer::sum);
-            
-            if (sum > M) {
-                System.out.println("Central point: " + cell2);
-                System.out.println("Number of points in N7: " + sum);
-                System.out.println("-------------------------------------------------------------------");
+            // Transform the RDD to a pair RDD where keys are the same and values represent counts
+            JavaPairRDD<Tuple2<Integer, Integer>, Integer> countPairRDD7 = cellCountsRDD_N7.mapToPair(cell -> new Tuple2<>(cell._1(), cell._2()));
+            JavaPairRDD<Tuple2<Integer, Integer>, Integer> countPairRDD3 = cellCountsRDD_N3.mapToPair(cell -> new Tuple2<>(cell._1(), cell._2()));
+
+            // Aggregate counts for each key
+            int count7 = countPairRDD7.values().reduce(Integer::sum);
+            int count3 = countPairRDD3.values().reduce(Integer::sum);
+
+            if (count7 > M) {
+                insideR7 += cell2._2();
+            }
+
+            if (count3 > M) {
+                insideR3 += cell2._2();
             }
         }
-        
 
+        System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
+        System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
 
-        
-
-
-        //? Non capisco se ste cose che ho aggiunto sono utili o meno (da rivedere)
-        // // ** STEP B: Filter pairs within N3 and N7 range of the cell
-        // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> {
-        //     int x = pair._1()._1();
-        //     int y = pair._1()._2();
-        //     long threshold_x_low_N3 = (long) (x - lam);
-        //     long threshold_x_high_N3 = (long) (x + (lam * 2));
-        //     long threshold_y_low_N3 = (long) (y - lam);
-        //     long threshold_y_high_N3 = (long) (y + (lam * 2));
-        //     return pair._1()._1() >= threshold_x_low_N3 && pair._1()._1() <= threshold_x_high_N3 &&
-        //             pair._1()._2() >= threshold_y_low_N3 && pair._1()._2() <= threshold_y_high_N3;
-        // });
-
-        // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> {
-        //     int x = pair._1()._1();
-        //     int y = pair._1()._2();
-        //     long threshold_x_low_N7 = (long) (x - (3 * lam));
-        //     long threshold_x_high_N7 = (long) (x + (lam * 4));
-        //     long threshold_y_low_N7 = (long) (y - (3 * lam));
-        //     long threshold_y_high_N7 = (long) (y + (lam * 4));
-        //     return pair._1()._1() >= threshold_x_low_N7 && pair._1()._1() <= threshold_x_high_N7 &&
-        //             pair._1()._2() >= threshold_y_low_N7 && pair._1()._2() <= threshold_y_high_N7;
-        // });
-
-        // To be changed with the correct values (0 is only placeholder)
-        // int y_p = 0;
-        // int x_p = 0;
-
-        // long threshold_x_low_N3 = (long) (x_p - lam);
-        // long threshold_x_high_N3 = (long) (x_p + (lam * 2));
-        // long threshold_y_low_N3 = (long) (y_p - lam);
-        // long threshold_y_high_N3 = (long) (y_p + (lam * 2));
-
-        // long threshold_x_low_N7 = (long) ((x_p - (3* lam)));
-        // long threshold_x_high_N7 = (long) (x_p + (lam * 4));
-        // long threshold_y_low_N7 = (long) (y_p - (3* lam));
-        // long threshold_y_high_N7 = (long) (y_p + (lam * 4));
-
-        // // filter all pair with x and y in the range of the cell
-        // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N3 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N3 && pair._1()._1() <= threshold_x_high_N3 && pair._1()._2() >= threshold_y_low_N3 && pair._1()._2() <= threshold_y_high_N3);
-        // JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD_N7 = cellCountsRDD.filter(pair -> pair._1()._1() >= threshold_x_low_N7 && pair._1()._1() <= threshold_x_high_N7 && pair._1()._2() >= threshold_y_low_N7 && pair._1()._2() <= threshold_y_high_N7);
+        int i = 0;
+        for (Tuple2<Tuple2<Integer, Integer>, Integer> cell2 : cellCountsRDD.collect()) {
+            if (i < K) {
+                System.out.println("Cell: (" + cell2._1()._1() + ", " + cell2._1()._2() + ")  Size = " + cell2._2());
+                i++;
+                continue;
+            }
+            break;
+        }
 
         return cellCountsRDD;
     }
