@@ -9,9 +9,14 @@
  * * Understand if it must print the output in a file .txt or only in the console (IDFK)
  * * Attach to each element, relative to a non-empty cell 𝐶, the values |𝑁3(𝐶)| and |𝑁7(𝐶)|
  * 
- * Why I think this is the correct file? The file I have sended on telegram have all the explenation highlighted in the pdf.
+ * Why I think this is the correct file?
+ * 1) The file I have sended on telegram have all the explenation highlighted in the pdf.
+ * 2) The following explenation a summary of info founded on google:
+ * * - If u don't cache the RDD after the creation it will be recomputed from scratch at every call
+ * * - Download all non empty cells into a local data structure is MUCH better then use collection every time.
  * //! DON'T MAKE MY RUNNING TIME WORSE! I'M WATCHING YOU! 👀
  */
+
 
 import java.io.IOException;
 
