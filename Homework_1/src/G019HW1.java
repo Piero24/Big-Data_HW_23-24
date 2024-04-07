@@ -4,7 +4,7 @@
 
 /*
  * //: TODO:
- * * Comment the code in a proper way AS IN THE GOOGLE JAVA STYLE GUIDE (If you don't know what it is, --> RDFM <--)
+ * * Comment the code in a proper way AS IN THE GOOGLE JAVA STYLE GUIDE (If you don't know what it is, --> RDFM <--) https://google.github.io/styleguide/javaguide.html
  * * Add the sorting method for the inputPoints RDD in the main method as explained in the pdf and in the section below (Do in that exact point for efficiency)
  * * Understand if it must print the output in a file .txt or only in the console (IDFK)
  * * Attach to each element, relative to a non-empty cell 𝐶, the values |𝑁3(𝐶)| and |𝑁7(𝐶)|
