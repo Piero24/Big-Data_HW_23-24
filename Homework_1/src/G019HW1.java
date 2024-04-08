@@ -39,7 +39,7 @@ public class G019HW1 {
     public static void main(String[] args) throws IOException {
 
         // Check if filename is provided as command-line argument
-        if (args.length < 5) {
+        if (args.length < 5){
             System.out.println("Please provide filename, D, M, K, and L as command-line arguments");
             return;
         }
