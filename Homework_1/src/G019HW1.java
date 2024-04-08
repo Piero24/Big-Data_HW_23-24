@@ -7,7 +7,7 @@
  * * Comment the code in a proper way AS IN THE GOOGLE JAVA STYLE GUIDE (If you don't know what it is, --> RDFM <--) https://google.github.io/styleguide/javaguide.html
  * * Add the sorting method for the inputPoints RDD in the main method as explained in the pdf and in the section below (Do in that exact point for efficiency)
  * * Understand if it must print the output in a file .txt or only in the console (IDFK)
- * * Attach to each element, relative to a non-empty cell 𝐶, the values |𝑁3(𝐶)| and |𝑁7(𝐶)|
+ * * Attach to each element, relative to a non-empty cell 𝐶, the values |N3(C)| and |N7(C)|
  * 
  * Why I think this is the correct file?
  * 1) The file I have sended on telegram have all the explenation highlighted in the pdf.
@@ -189,8 +189,6 @@ public class G019HW1 {
         .reduceByKey((count1, count2) -> count1 + count2)
         .cache();
 
-
-
         /// Swap key and value
         JavaPairRDD<Integer, Tuple2<Integer, Integer>> swappedRDD = cellCountsRDD
         .mapToPair(pair -> new Tuple2<>(pair._2(), pair._1()));
@@ -202,7 +200,6 @@ public class G019HW1 {
         // Swap key and value back
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> sortedCellCountsRDD = sortedSwappedRDD
         .mapToPair(pair -> new Tuple2<>(pair._2(), pair._1()));
-
 
         int insideR7 = 0;
         int insideR3 = 0;
