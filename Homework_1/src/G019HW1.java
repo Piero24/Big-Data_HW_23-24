@@ -8,10 +8,10 @@
  * * Add the sorting method for the inputPoints RDD in the main method as explained in the pdf and in the section below (Do in that exact point for efficiency)
  * * Understand if it must print the output in a file .txt or only in the console (IDFK)
  * * Attach to each element, relative to a non-empty cell C, the values |N3(C)| and |N7(C)|
- * 
+ *
  * Why I think this is the correct file?
- * 1) The file I have sended on telegram have all the explenation highlighted in the pdf.
- * 2) The following explenation a summary of info founded on google:
+ * 1) The file I have sent on telegram have all the explanation highlighted in the pdf.
+ * 2) The following explanation a summary of info founded on google:
  * * - If u don't cache the RDD after the creation it will be recomputed from scratch at every call
  * * - Download all non empty cells into a local data structure is MUCH better then use collection every time.
  * //! DON'T MAKE MY RUNNING TIME WORSE! I'M WATCHING YOU! 👀
@@ -26,27 +26,30 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import scala.Tuple2;
+
 import java.util.*;
 
 public class G019HW1 {
 
     /**
-     * Main method to read data from a file and perform outlier detection.
-     * 
+     * Main method to read data from a file and perform outlier detection:
+     * - if the dataset contains a number of data bigger than 200000, it calls only MRApproxOutliers();
+     * - else it calls both MRApproxOutliers() and exactOutliers()
+     *
      * @param args Command-line arguments: filename, D, M, K
      * @throws IOException if an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
 
         // Check if filename is provided as command-line argument
-        if (args.length < 5){
+        if (args.length < 5) {
             System.out.println("Please provide filename, D, M, K, and L as command-line arguments");
             return;
         }
 
         // File Name
         String filename = args[0];
-        // Distance Threshold 
+        // Distance Threshold
         float D = Float.parseFloat(args[1]);
         // Number of Nearest Neighbors
         int M = Integer.parseInt(args[2]);
@@ -61,6 +64,7 @@ public class G019HW1 {
 
         JavaRDD<String> rawData = sc.textFile(filename);
 
+        // Load the dataset as coordinates separated by comma
         JavaRDD<Tuple2<Float, Float>> inputPoints = rawData.map(line -> {
             String[] parts = line.split(",");
             float x = Float.parseFloat(parts[0]);
@@ -70,11 +74,11 @@ public class G019HW1 {
 
         /*
          *
-         *  
+         *
          * * ADD SORTING METHOD IN ASCENDING ORDER HERE FOR inputPoints (Sort by x and y)
-         * * Ex: [(2,1) (1,1) (0,2) (0,1)] ---> [(0,1) (0,2) (1,1) (2,1)] 
-         * 
-         * 
+         * * Ex: [(2,1) (1,1) (0,2) (0,1)] ---> [(0,1) (0,2) (1,1) (2,1)]
+         *
+         *
          */
 
         inputPoints = inputPoints.repartition(L).cache();
@@ -113,7 +117,7 @@ public class G019HW1 {
 
     /**
      * Clears the console screen.
-     * 
+     *
      */
     public static void clearScreen() {
         System.out.print("\033[H\033[2J");
@@ -121,23 +125,23 @@ public class G019HW1 {
     }
 
     /**
-     * Performs exact outlier detection.
-     * 
+     * Performs exact (M,D)-outlier detection.
+     *
      * @param listOfPoints List of data points
-     * @param D Distance threshold
-     * @param M Minimum number of neighbors
-     * @param K Number of outliers to find
+     * @param D Distance threshold inside which the number of points is computed
+     * @param M Minimum number of neighbors to determine if a point is an (M,D)-outlier
+     * @param K Number of outliers to print in non-decreasing order
      */
     public static void exactOutliers(List<Tuple2<Float, Float>> listOfPoints, float D, int M, int K) {
         List<Tuple2<Float, Float>> count = new ArrayList<>();
+        List<Tuple2<Integer, Integer>> neighbor = new ArrayList<>();
 
         for (Tuple2<Float, Float> point : listOfPoints) {
             List<Tuple2<Float, Float>> notOutliers = new ArrayList<>();
+            int num_neigh = 0;
 
             for (Tuple2<Float, Float> point2 : listOfPoints) {
-
                 if (notOutliers.size() > M) break;
-
                 // Calculate the distance between point and point2
                 double distanceX = Math.pow(point._1() - point2._1(), 2);
                 double distanceY = Math.pow(point._2() - point2._2(), 2);
@@ -145,71 +149,87 @@ public class G019HW1 {
 
                 if (distance < D) {
                     notOutliers.add(point2);
+                    num_neigh++;
                 }
             }
 
             if (notOutliers.size() < M + 1) {
+                Tuple2<Integer, Integer> neigh = new Tuple2<>(count.size(), num_neigh);
                 count.add(point);
+                neighbor.add(neigh);
             }
         }
 
         System.out.println("Number of Outliers = " + count.size());
 
-        int i = 0;
-        for (Tuple2<Float, Float> point2 : count) {
-            if (i < K) {
-                System.out.println("Point: (" + point2._1() + ", " + point2._2() + ")");
-                i++;
-                continue;
+        // Sorting the neighbor list based on the second element of each tuple containing the # of points inside D
+        Collections.sort(neighbor, new Comparator<Tuple2<Integer, Integer>>() {
+            @Override
+            public int compare(Tuple2<Integer, Integer> tuple1, Tuple2<Integer, Integer> tuple2) {
+                return tuple1._2().compareTo(tuple2._2());
             }
-            break;
+        });
+
+        // Printing the first K points after sorting
+        int i = 0;
+        for (Tuple2<Integer, Integer> tuple : neighbor) {
+            if (i < K) {
+                Tuple2<Float, Float> point = count.get(tuple._1());
+                System.out.println("Point: (" + point._1() + ", " + point._2() + ")");
+                //System.out.println("Point: (" + point._1() + ", " + point._2() + ") with size " + tuple._2());
+                i++;
+            } else {
+                break;
+            }
         }
     }
-
     /**
      * Performs MR (MapReduce) approximate outlier detection.
-     * 
-     * @param pairsRDD RDD of Pair objects
+     *
+     * @param inputPoints RDD of Pair objects
      * @param D Distance threshold
      * @param M Minimum number of neighbors
      * @param K Number of outliers to find
      */
-    
+
     public static void MRApproxOutliers(JavaRDD<Tuple2<Float, Float>> inputPoints, float D, int M, int K) {
 
         long totalPoints = 0;
         double lam = D / (2 * Math.sqrt(2));
-        
+
         // ** STEP A: Transform RDD into RDD of non-empty cells with their counts
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = inputPoints.mapToPair(pair -> {
-            Tuple2<Integer, Integer> cellId = new Tuple2<>((int) Math.floor(pair._1() / lam), (int) Math.floor(pair._2() / lam));
-            return new Tuple2<>(cellId, 1);
-        }).cache()
-        .filter(pair -> pair._2() > 0) // Filter out empty cells
-        .reduceByKey((count1, count2) -> count1 + count2)
-        .cache();
+                    Tuple2<Integer, Integer> cellId = new Tuple2<>((int) Math.floor(pair._1() / lam), (int) Math.floor(pair._2() / lam));
+                    return new Tuple2<>(cellId, 1);
+                }).cache()
+                .filter(pair -> pair._2() > 0) // Filter out empty cells
+                .reduceByKey((count1, count2) -> count1 + count2)
+                .cache();
 
-        /// Swap key and value
+        // Swap key and value to perform the sorting of the K points to be shown
         JavaPairRDD<Integer, Tuple2<Integer, Integer>> swappedRDD = cellCountsRDD
-        .mapToPair(pair -> new Tuple2<>(pair._2(), pair._1()));
+                .mapToPair(pair -> new Tuple2<>(pair._2(), pair._1()));
 
         // Sort by the count k
         JavaPairRDD<Integer, Tuple2<Integer, Integer>> sortedSwappedRDD = swappedRDD
-        .sortByKey(true);
+                .sortByKey(true);
 
         // Swap key and value back
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> sortedCellCountsRDD = sortedSwappedRDD
-        .mapToPair(pair -> new Tuple2<>(pair._2(), pair._1()));
+                .mapToPair(pair -> new Tuple2<>(pair._2(), pair._1()));
 
         int insideR7 = 0;
         int insideR3 = 0;
 
+        // ** STEP B: Compute the values |N3(C)| and |N7(C)| for each cell C drawn from the previous step
+        // List containing all the reduced data
         List<Tuple2<Tuple2<Integer, Integer>, Integer>> listOfCellCounts = sortedCellCountsRDD.collect();
-        
+
         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : listOfCellCounts) {
 
             totalPoints += cell._2();
 
+            // If the point is not a sure outlier or an uncertain point go to the following
             if (cell._2() > M) {
                 insideR7 += cell._2();
                 insideR3 += cell._2();
@@ -218,12 +238,14 @@ public class G019HW1 {
 
             int x = cell._1()._1();
             int y = cell._1()._2();
-            
+
+            // Boundaries of the R7 region
             int minX7 = x - 3;
             int maxX7 = x + 3;
             int minY7 = y - 3;
             int maxY7 = y + 3;
 
+            // Boundaries of the R3 region
             int minX3 = x - 1;
             int maxX3 = x + 1;
             int minY3 = y - 1;
@@ -235,7 +257,7 @@ public class G019HW1 {
             for (Tuple2<Tuple2<Integer, Integer>, Integer> cell2 : listOfCellCounts) {
                 int pair_x = cell2._1()._1();
                 int pair_y = cell2._1()._2();
-                
+
                 if (pair_x >= minX7 && pair_x <= maxX7 && pair_y >= minY7 && pair_y <= maxY7) {
                     count7 += cell2._2();
                 }
@@ -268,4 +290,3 @@ public class G019HW1 {
         }
     }
 }
-
