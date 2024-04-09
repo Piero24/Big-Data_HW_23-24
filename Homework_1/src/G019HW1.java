@@ -1,3 +1,11 @@
+// Copyright (C) by Group 019 All Rights Reserved
+//
+// This file is part of the project: Homework 1
+//
+// Written by: Pietrobon Andrea, Friso Giovanni, Agostini Francesco
+// Date: Apr 2024
+
+// Command for execute the homowork from terminal:
 // -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 1.0 3 9 2
 // -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 5 2
 // -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 50 2
@@ -5,27 +13,19 @@
 /*
  * //: TODO:
  * * Understand if it must print the output in a file .txt or only in the console (IDFK)
- *
- * Why I think this is the correct file?
- * 1) The file I have sent on telegram have all the explanation highlighted in the pdf.
- * 2) The following explanation a summary of info founded on google:
- * * - If u don't cache the RDD after the creation it will be recomputed from scratch at every call
- * * - Download all non empty cells into a local data structure is MUCH better then use collection every time.
- * //! DON'T MAKE MY RUNNING TIME WORSE! I'M WATCHING YOU! 👀
  */
 
-
+import java.util.*;
 import java.io.IOException;
-
-import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
 
 import scala.Tuple2;
 import scala.Tuple3;
 
-import java.util.*;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+
 
 public class G019HW1 {
 
@@ -69,15 +69,6 @@ public class G019HW1 {
             float y = Float.parseFloat(parts[1]);
             return new Tuple2<>(x, y);
         });
-
-        /*
-         *
-         *
-         * * ADD SORTING METHOD IN ASCENDING ORDER HERE FOR inputPoints (Sort by x and y)
-         * * Ex: [(2,1) (1,1) (0,2) (0,1)] ---> [(0,1) (0,2) (1,1) (2,1)]
-         *
-         *
-         */
 
         inputPoints = inputPoints.repartition(L).cache();
 
@@ -132,7 +123,6 @@ public class G019HW1 {
      */
     public static void exactOutliers(List<Tuple2<Float, Float>> listOfPoints, float D, int M, int K) {
         List<Tuple2<Tuple2<Float, Float>,Integer>> count = new ArrayList<>();
-        //List<Tuple2<Integer, Integer>> neighbor = new ArrayList<>();
 
         for (Tuple2<Float, Float> point : listOfPoints) {
             List<Tuple2<Float, Float>> notOutliers = new ArrayList<>();
@@ -154,7 +144,6 @@ public class G019HW1 {
             if (notOutliers.size() < M + 1) {
                 Tuple2<Tuple2<Float,Float>, Integer> neigh = new Tuple2<>(point, num_neigh);
                 count.add(neigh);
-                //neighbor.add(neigh);
             }
         }
 
@@ -219,16 +208,14 @@ public class G019HW1 {
         int insideR7 = 0;
         int insideR3 = 0;
 
-        // ** STEP B: Compute the values |N3(C)| and |N7(C)| for each cell C drawn from the previous step
-        // List containing all the reduced data
         List<Tuple2<Tuple2<Integer, Integer>, Integer>> listOfCellCounts = sortedCellCountsRDD.collect();
-        // Running time of MRApproxOutliers = 465 ms
+        
+        // ** STEP B: Compute the values |N3(C)| and |N7(C)| for each cell C drawn from the previous step
         List<Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>>> listOfCells = new ArrayList<>();
         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : listOfCellCounts) {
 
             totalPoints += cell._2();
 
-            // If the point is not a sure outlier or an uncertain point go to the following
             if (cell._2() > M) {
                 insideR7 += cell._2();
                 insideR3 += cell._2();
@@ -267,7 +254,10 @@ public class G019HW1 {
             }
 
 
-            Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> updatedPoint = new Tuple2<>(cell._1(), new Tuple3<>(cell._2(),count3,count7));
+            Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> updatedPoint = new Tuple2<>(
+                cell._1(), new Tuple3<>(cell._2(),count3,count7
+                ));
+
             listOfCells.add(updatedPoint);
             if (count7 > M) {
                 insideR7 += cell._2();
