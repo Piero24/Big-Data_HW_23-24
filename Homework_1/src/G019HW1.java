@@ -4,10 +4,7 @@
 
 /*
  * //: TODO:
- * * Comment the code in a proper way AS IN THE GOOGLE JAVA STYLE GUIDE (If you don't know what it is, --> RDFM <--) https://google.github.io/styleguide/javaguide.html
- * * Add the sorting method for the inputPoints RDD in the main method as explained in the pdf and in the section below (Do in that exact point for efficiency)
  * * Understand if it must print the output in a file .txt or only in the console (IDFK)
- * * Attach to each element, relative to a non-empty cell C, the values |N3(C)| and |N7(C)|
  *
  * Why I think this is the correct file?
  * 1) The file I have sent on telegram have all the explanation highlighted in the pdf.
@@ -26,6 +23,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import scala.Tuple2;
+import scala.Tuple3;
 
 import java.util.*;
 
@@ -133,8 +131,8 @@ public class G019HW1 {
      * @param K Number of outliers to print in non-decreasing order
      */
     public static void exactOutliers(List<Tuple2<Float, Float>> listOfPoints, float D, int M, int K) {
-        List<Tuple2<Float, Float>> count = new ArrayList<>();
-        List<Tuple2<Integer, Integer>> neighbor = new ArrayList<>();
+        List<Tuple2<Tuple2<Float, Float>,Integer>> count = new ArrayList<>();
+        //List<Tuple2<Integer, Integer>> neighbor = new ArrayList<>();
 
         for (Tuple2<Float, Float> point : listOfPoints) {
             List<Tuple2<Float, Float>> notOutliers = new ArrayList<>();
@@ -154,27 +152,27 @@ public class G019HW1 {
             }
 
             if (notOutliers.size() < M + 1) {
-                Tuple2<Integer, Integer> neigh = new Tuple2<>(count.size(), num_neigh);
-                count.add(point);
-                neighbor.add(neigh);
+                Tuple2<Tuple2<Float,Float>, Integer> neigh = new Tuple2<>(point, num_neigh);
+                count.add(neigh);
+                //neighbor.add(neigh);
             }
         }
 
         System.out.println("Number of Outliers = " + count.size());
 
         // Sorting the neighbor list based on the second element of each tuple containing the # of points inside D
-        Collections.sort(neighbor, new Comparator<Tuple2<Integer, Integer>>() {
+        Collections.sort(count, new Comparator<Tuple2<Tuple2<Float,Float>, Integer>>() {
             @Override
-            public int compare(Tuple2<Integer, Integer> tuple1, Tuple2<Integer, Integer> tuple2) {
+            public int compare(Tuple2<Tuple2<Float,Float>, Integer> tuple1, Tuple2<Tuple2<Float,Float>, Integer> tuple2) {
                 return tuple1._2().compareTo(tuple2._2());
             }
         });
 
         // Printing the first K points after sorting
         int i = 0;
-        for (Tuple2<Integer, Integer> tuple : neighbor) {
+        for (Tuple2<Tuple2<Float,Float>, Integer> tuple : count) {
             if (i < K) {
-                Tuple2<Float, Float> point = count.get(tuple._1());
+                Tuple2<Float, Float> point = tuple._1();
                 System.out.println("Point: (" + point._1() + ", " + point._2() + ")");
                 //System.out.println("Point: (" + point._1() + ", " + point._2() + ") with size " + tuple._2());
                 i++;
@@ -224,7 +222,8 @@ public class G019HW1 {
         // ** STEP B: Compute the values |N3(C)| and |N7(C)| for each cell C drawn from the previous step
         // List containing all the reduced data
         List<Tuple2<Tuple2<Integer, Integer>, Integer>> listOfCellCounts = sortedCellCountsRDD.collect();
-
+        // Running time of MRApproxOutliers = 465 ms
+        List<Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>>> listOfCells = new ArrayList<>();
         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : listOfCellCounts) {
 
             totalPoints += cell._2();
@@ -267,6 +266,9 @@ public class G019HW1 {
                 }
             }
 
+
+            Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> updatedPoint = new Tuple2<>(cell._1(), new Tuple3<>(cell._2(),count3,count7));
+            listOfCells.add(updatedPoint);
             if (count7 > M) {
                 insideR7 += cell._2();
             }
@@ -274,15 +276,16 @@ public class G019HW1 {
             if (count3 > M) {
                 insideR3 += cell._2();
             }
+
         }
 
         System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
         System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
 
         int i = 0;
-        for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : listOfCellCounts) {
+        for (Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> cell : listOfCells) {
             if (i < K) {
-                System.out.println("Cell: (" + cell._1()._1() + ", " + cell._1()._2() + ")  Size = " + cell._2());
+                System.out.println("Cell: (" + cell._1()._1() + ", " + cell._1()._2() + ")  Size = " + cell._2()._1());
                 i++;
                 continue;
             }
