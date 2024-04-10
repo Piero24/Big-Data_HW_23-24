@@ -10,11 +10,6 @@
 // -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 5 2
 // -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 50 2
 
-/*
- * //: TODO:
- * * Understand if it must print the output in a file .txt or only in the console (IDFK)
- */
-
 import java.util.*;
 import java.io.IOException;
 
