@@ -5,10 +5,10 @@
 // Written by: Pietrobon Andrea, Friso Giovanni, Agostini Francesco
 // Date: Apr 2024
 
-// Command for execute the homowork from terminal:
+// Command for execute the homework from terminal:
 // -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 1.0 3 9 2
 // -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 5 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 50 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-100k.csv 0.02 10 5 2
 
 import java.util.*;
 import java.io.IOException;
@@ -204,18 +204,23 @@ public class G019HW1 {
         int insideR3 = 0;
 
         List<Tuple2<Tuple2<Integer, Integer>, Integer>> listOfCellCounts = sortedCellCountsRDD.collect();
-        
+
         // ** STEP B: Compute the values |N3(C)| and |N7(C)| for each cell C drawn from the previous step
         List<Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>>> listOfCells = new ArrayList<>();
         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : listOfCellCounts) {
 
             totalPoints += cell._2();
 
-            if (cell._2() > M) {
+            /** The following if statement is meant to avoid computations that are useless in this case
+             * and spare time in counting more than M points in R3 or R7, but, since in the
+             * assignment is specified to compute N3 and N7 for all the points, it is left commented
+             */
+
+            /*if (cell._2() > M) {
                 insideR7 += cell._2();
                 insideR3 += cell._2();
                 continue;
-            }
+            }*/
 
             int x = cell._1()._1();
             int y = cell._1()._2();
@@ -250,8 +255,8 @@ public class G019HW1 {
 
 
             Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> updatedPoint = new Tuple2<>(
-                cell._1(), new Tuple3<>(cell._2(),count3,count7
-                ));
+                    cell._1(), new Tuple3<>(cell._2(),count3,count7
+            ));
 
             listOfCells.add(updatedPoint);
             if (count7 > M) {
