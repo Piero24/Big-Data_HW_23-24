@@ -6,9 +6,9 @@
 // Date: Apr 2024
 
 // Command for execute the homowork from terminal:
-// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/TestN15-input.txt 1.0 3 9 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/uber-10k.csv 0.02 10 5 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/uber-10k.csv 0.02 10 50 2
+// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G019HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW2 ./Homework_2/Data/uber-10k.csv 10 5 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW2 ./Homework_2/Data/uber-10k.csv 10 50 2
 
 import java.util.*;
 import java.io.IOException;
@@ -35,8 +35,8 @@ public class G019HW2 {
     public static void main(String[] args) throws IOException {
 
         // Check if filename is provided as command-line argument
-        if (args.length < 5) {
-            System.out.println("Please provide filename, D, M, K, and L as command-line arguments");
+        if (args.length < 4) {
+            System.out.println("Please provide filename, M, K, and L as command-line arguments");
             return;
         }
 
@@ -49,7 +49,7 @@ public class G019HW2 {
         // Number of Partitions
         int L = Integer.parseInt(args[3]);
 
-        SparkConf conf = new SparkConf(true).setAppName("G019HW1");
+        SparkConf conf = new SparkConf(true).setAppName("G019HW2");
         JavaSparkContext sc = new JavaSparkContext(conf);
         sc.setLogLevel("WARN");
 
@@ -71,10 +71,10 @@ public class G019HW2 {
         long totalPoints = inputPoints.count();
         System.out.println("Number of points: " + totalPoints);
 
-        //
+        // Apply the MRFFT algorithm
         Float D = MRFFT(inputPoints, K);
 
-        //
+        // Apply the MRApproxOutliers algorithm
         MRApproxOutliers(inputPoints, D, M);
 
         // Close the JavaSparkContext
@@ -88,6 +88,78 @@ public class G019HW2 {
     public static void clearScreen() {
         System.out.print("\033[H\033[2J");
         System.out.flush();
+    }
+
+    /**
+     * Computes the Euclidean distance between two points.
+     *
+     * @param p1 A point represented as a Tuple2<Float, Float>
+     * @param p2 A point represented as a Tuple2<Float, Float>
+     * 
+     * @return The Euclidean distance between the two points.
+     */
+    private static double distance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
+        return Math.sqrt(Math.pow(p1._1 - p2._1, 2) + Math.pow(p1._2 - p2._2, 2));
+    }
+
+    /**
+     * Implements Farthest-First Traversal algorithm, through standard sequential code.
+     * NOTE: The implementation should run in O(|P| * K) time.
+     *
+     * @param P A set of points represented as a list of Tuple2<Float, Float>
+     * @param K Number of centers
+     * 
+     * @return An ArrayList that is a set C of K centers.
+     */
+    public static List<Tuple2<Float, Float>> sequentialFFT(List<Tuple2<Float, Float>> P, int K) {
+        List<Tuple2<Float, Float>> C = new ArrayList<>();
+        C.add(P.get(0));
+
+        for (int i = 1; i < K; i++) {
+            double maxDist = -1;
+            Tuple2<Float, Float> maxPoint = null;
+
+            for (Tuple2<Float, Float> p : P) {
+                double minDist = Double.MAX_VALUE;
+
+                for (Tuple2<Float, Float> c : C) {
+                    double currentDistance = distance(p, c);
+
+                    if (currentDistance < minDist) {
+                        minDist = currentDistance;
+                    }
+                }
+
+                if (minDist > maxDist) {
+                    maxDist = minDist;
+                    maxPoint = p;
+                }
+            }
+
+            C.add(maxPoint);
+        }
+        return C;
+    }
+
+    /**
+     *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
+     *
+     * @param P
+     * @param M
+     * 
+     * @return
+     */
+    public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
+
+        Float D = 0.0f;
+        List<Tuple2<Float, Float>> Pp = P.collect();
+        List<Tuple2<Float, Float>> C = sequentialFFT(Pp, K);
+        
+        //
+        //* Your code here
+        //
+        
+        return D;
     }
 
     /**
@@ -175,50 +247,7 @@ public class G019HW2 {
 
         }
 
-        System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
-        System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
+        // System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
+        // System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
     }
-
-    /**
-     * The implementation should run in O(|P| * K) time.
-     *
-     * @param P
-     * @param K
-     * 
-     * @return An ArrayList that is a set C of K centers.
-     */
-    public static List<Tuple2<Float, Float>> sequentialFFT(List<Tuple2<Float, Float>> P, int K) {
-        List<Tuple2<Float, Float>> C = new ArrayList<>();
-        
-        //
-        //* Your code here
-        //
-        
-        return C;
-    }
-
-    /**
-     *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
-     *
-     * @param P
-     * @param M
-     * 
-     * @return
-     */
-    public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
-
-        Float D = 0.0f;
-        List<Tuple2<Float, Float>> Pp = P.collect();
-        List<Tuple2<Float, Float>> C = sequentialFFT(Pp, K);
-        
-        //
-        //* Your code here
-        //
-        
-        return D;
-    }
-
-
-
-
 }
