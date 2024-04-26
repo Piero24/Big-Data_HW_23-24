@@ -6,9 +6,9 @@
 // Date: Apr 2024
 
 // Command for execute the homework from terminal:
-// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/TestN15-input.txt 1.0 3 9 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 5 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_1/Data/uber-100k.csv 0.02 10 5 2
+// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW1 ./Homework_1/Data/TestN15-input.txt 1.0 3 9 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW1 ./Homework_1/Data/uber-10k.csv 0.02 10 5 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW1 ./Homework_1/Data/uber-100k.csv 0.02 10 5 2
 
 import java.util.*;
 import java.io.IOException;
@@ -22,7 +22,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 
-public class G019HW1 {
+public class G016HW1 {
 
     /**
      * Main method to read data from a file and perform outlier detection:
@@ -51,7 +51,7 @@ public class G019HW1 {
         // Number of Partitions
         int L = Integer.parseInt(args[4]);
 
-        SparkConf conf = new SparkConf(true).setAppName("G019HW1");
+        SparkConf conf = new SparkConf(true).setAppName("G016HW1");
         JavaSparkContext sc = new JavaSparkContext(conf);
         sc.setLogLevel("WARN");
 
