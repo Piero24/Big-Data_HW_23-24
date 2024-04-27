@@ -6,9 +6,9 @@
 // Date: Apr 2024
 
 // Command for execute the homowork from terminal:
-// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/TestN15-input.txt 1.0 3 9 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/uber-10k.csv 0.02 10 5 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/uber-10k.csv 0.02 10 50 2
+// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-10k.csv 10 5 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-10k.csv 10 50 2
 
 import java.util.*;
 import java.io.IOException;
@@ -35,23 +35,21 @@ public class G016HW2 {
     public static void main(String[] args) throws IOException {
 
         // Check if filename is provided as command-line argument
-        if (args.length < 5) {
-            System.out.println("Please provide filename, D, M, K, and L as command-line arguments");
+        if (args.length < 4) {
+            System.out.println("Please provide filename, M, K, and L as command-line arguments");
             return;
         }
 
         // File Name
         String filename = args[0];
-        // Distance Threshold
-        float D = Float.parseFloat(args[1]);
         // Number of Nearest Neighbors
-        int M = Integer.parseInt(args[2]);
-        // Number of Clusters
-        int K = Integer.parseInt(args[3]);
+        int M = Integer.parseInt(args[1]);
+        // Number of Neighbors to Check
+        int K = Integer.parseInt(args[2]);
         // Number of Partitions
-        int L = Integer.parseInt(args[4]);
+        int L = Integer.parseInt(args[3]);
 
-        SparkConf conf = new SparkConf(true).setAppName("G019HW2");
+        SparkConf conf = new SparkConf(true).setAppName("G016HW2");
         JavaSparkContext sc = new JavaSparkContext(conf);
         sc.setLogLevel("WARN");
 
@@ -68,23 +66,15 @@ public class G016HW2 {
         inputPoints = inputPoints.repartition(L).cache();
 
         clearScreen();
-        System.out.println(filename +  " D=" + D + " M=" + M + " K=" + K + " L=" + + L);
+        System.out.println(filename + " M=" + M + " K=" + K + " L=" + + L);
 
         long totalPoints = inputPoints.count();
         System.out.println("Number of points: " + totalPoints);
 
-        System.out.println("Centers:");
-        //
-        List<Tuple2<Float, Float>> C;
-        List<Tuple2<Float, Float>> P = inputPoints.collect();
-        C = sequentialFFT(P,K);
-        /*for(Tuple2<Float,Float> c: C)
-        {
-            System.out.println("(" + c._1() + ", " + c._2() + ")");
-        }*/
-        // D = MRFFT(inputPoints, K);
+        // Apply the MRFFT algorithm
+        Float D = MRFFT(inputPoints, K);
 
-        //
+        // Apply the MRApproxOutliers algorithm
         MRApproxOutliers(inputPoints, D, M);
 
         // Close the JavaSparkContext
@@ -98,6 +88,89 @@ public class G016HW2 {
     public static void clearScreen() {
         System.out.print("\033[H\033[2J");
         System.out.flush();
+    }
+
+    /**
+     * Computes the Euclidean distance between two points.
+     *
+     * @param p1 A point represented as a Tuple2<Float, Float>
+     * @param p2 A point represented as a Tuple2<Float, Float>
+     * 
+     * @return The Euclidean distance between the two points.
+     */
+    private static double distance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
+        return Math.sqrt(Math.pow(p1._1 - p2._1, 2) + Math.pow(p1._2 - p2._2, 2));
+    }
+
+    /**
+     * Implements Farthest-First Traversal algorithm, through standard sequential code.
+     * NOTE: The implementation should run in O(|P| * K) time.
+     *
+     * @param P A set of points represented as a list of Tuple2<Float, Float>
+     * @param K Number of centers
+     * 
+     * @return An ArrayList that is a set C of K centers.
+     */
+    public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
+        List<Tuple2<Float, Float>> C = new ArrayList<>();
+        C.add(P.get(0));
+
+        for (int i = 1; i < K; i++) {
+            double maxDist = -1;
+            Tuple2<Float, Float> maxPoint = null;
+
+            for (Tuple2<Float, Float> p : P) {
+                double minDist = Double.MAX_VALUE;
+
+                for (Tuple2<Float, Float> c : C) {
+                    double currentDistance = distance(p, c);
+
+                    if (currentDistance < minDist) {
+                        minDist = currentDistance;
+                    }
+                }
+
+                if (minDist > maxDist) {
+                    maxDist = minDist;
+                    maxPoint = p;
+                }
+            }
+
+            C.add(maxPoint);
+        }
+        return C;
+    }
+
+    /**
+     *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
+     *
+     * @param P
+     * @param M
+     * 
+     * @return
+     */
+    public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
+
+        Float D = 0.0f;
+        // ** ROUND 1: Compute coreset
+        List<Tuple2<Float, Float>> coreset = P.mapPartitions(pointsIter -> {
+            List<Tuple2<Float, Float>> localCoreset = new ArrayList<>();
+            List<Tuple2<Float, Float>> pointsList = new ArrayList<>();
+            pointsIter.forEachRemaining(pointsList::add);
+            localCoreset = SequentialFFT(pointsList, K);
+            return localCoreset.iterator();
+        }).collect();
+
+        // ** ROUND 2: Compute final centers
+        List<Tuple2<Float, Float>> C = SequentialFFT(coreset, K);
+        
+        // ** ROUND 3:
+        
+        //
+        //* Your code here
+        //
+        
+        return D;
     }
 
     /**
@@ -171,7 +244,7 @@ public class G016HW2 {
 
 
             Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> updatedPoint = new Tuple2<>(
-                cell._1(), new Tuple3<>(cell._2(),count3,count7
+                cell._1(), new Tuple3<>(cell._2(),count3, count7
                 ));
 
             listOfCells.add(updatedPoint);
@@ -185,78 +258,7 @@ public class G016HW2 {
 
         }
 
-        System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
-        System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
+        // System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
+        // System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
     }
-
-    /**
-     * The implementation should run in O(|P| * K) time.
-     *
-     * @param P
-     * @param K
-     * 
-     * @return An ArrayList that is a set C of K centers.
-     */
-    public static List<Tuple2<Float, Float>> sequentialFFT(List<Tuple2<Float, Float>> P, int K) {
-
-        List<Tuple2<Float, Float>> C = new ArrayList<>();
-        // Make a copy of P because it is not possible to change a list resulting from an RDD
-        List<Tuple2<Float, Float>> copyOfP = new ArrayList<>(P);
-        // Randomly select the first point
-        Tuple2<Float, Float> center = P.get(0);
-        C.add(center);
-        copyOfP.remove(center);
-
-        while (C.size() < K)
-        {
-            double maxDistance = 0;
-            // Calculate distances from each point to the current center
-            for (Tuple2<Float, Float> p : copyOfP)
-            {
-
-                double dx = center._1() - p._1();
-                double dy = center._2() - p._2();
-                double distance = Math.sqrt(dx * dx + dy * dy);
-                if (distance > maxDistance)
-                {
-                    maxDistance = distance;
-                    center = p;
-                    //System.out.println("Distanza: " + distance);
-                    //System.out.println("Punto: " + p._1()+ ", " + p._2());
-                }
-            }
-
-            // Add the farthest point to the centers
-            C.add(center);
-            //break;
-            copyOfP.remove(center);
-        }
-
-        return C;
-    }
-
-    /**
-     *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
-     *
-     * @param P
-     * @param K
-     * 
-     * @return
-     */
-    public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
-
-        Float D = 0.0f;
-        List<Tuple2<Float, Float>> Pp = P.collect();
-        List<Tuple2<Float, Float>> C = sequentialFFT(Pp, K);
-        
-        //
-        //* Your code here
-        //
-        
-        return D;
-    }
-
-
-
-
 }
