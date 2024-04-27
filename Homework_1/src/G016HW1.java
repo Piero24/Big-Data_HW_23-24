@@ -130,7 +130,7 @@ public class G016HW1 {
                 double distanceY = Math.pow(point._2() - point2._2(), 2);
                 double distance = Math.sqrt(distanceX + distanceY);
 
-                if (distance < D) {
+                if (distance <= D) {
                     notOutliers.add(point2);
                     num_neigh++;
                 }
