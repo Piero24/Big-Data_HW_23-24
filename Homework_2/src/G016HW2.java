@@ -15,16 +15,19 @@ import java.io.IOException;
 
 import scala.Tuple2;
 import scala.Tuple3;
-import java.util.List;
-import java.util.ArrayList;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.broadcast.Broadcast;
 
 
 public class G016HW2 {
+
+    private static JavaSparkContext sc;
+    // Broadcast the centers
+    public static Broadcast<List<Tuple2<Float, Float>>> broadcastCenters;
 
     /**
      * 
@@ -50,7 +53,8 @@ public class G016HW2 {
         int L = Integer.parseInt(args[3]);
 
         SparkConf conf = new SparkConf(true).setAppName("G016HW2");
-        JavaSparkContext sc = new JavaSparkContext(conf);
+        sc = new JavaSparkContext(conf);
+        // JavaSparkContext sc = new JavaSparkContext(conf);
         sc.setLogLevel("WARN");
 
         JavaRDD<String> rawData = sc.textFile(filename);
@@ -149,9 +153,14 @@ public class G016HW2 {
      * 
      * @return
      */
+
+
+
+     
     public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
 
-        Float D = 0.0f;
+        long startTime = System.currentTimeMillis();
+
         // ** ROUND 1: Compute coreset
         List<Tuple2<Float, Float>> coreset = P.mapPartitions(pointsIter -> {
             List<Tuple2<Float, Float>> localCoreset = new ArrayList<>();
@@ -161,16 +170,48 @@ public class G016HW2 {
             return localCoreset.iterator();
         }).collect();
 
+        long endTime = System.currentTimeMillis();
+        long runningTime = endTime - startTime;
+        System.out.println("Running time of Round 1 = " + runningTime + " ms");
+
+        startTime = System.currentTimeMillis();
+
         // ** ROUND 2: Compute final centers
         List<Tuple2<Float, Float>> C = SequentialFFT(coreset, K);
+
+        endTime = System.currentTimeMillis();
+        runningTime = endTime - startTime;
+        System.out.println("Running time of Round 2 = " + runningTime + " ms");
+
+        startTime = System.currentTimeMillis();
         
-        // ** ROUND 3:
-        
-        //
-        //* Your code here
-        //
-        
-        return D;
+        // ** ROUND 3: Compute the radius R of the clustering induced by the centers
+        // Broadcast the centers
+        broadcastCenters = sc.broadcast(C);
+
+        // Compute the radius R of the clustering induced by the centers
+        JavaRDD<Double> distances = P.map(point -> {
+            double minDist = Float.MAX_VALUE;
+            for (Tuple2<Float, Float> center : broadcastCenters.value()) {
+                double dist = distance(point, center);
+                if (dist < minDist) {
+                    minDist = dist;
+                }
+            }
+            return minDist;
+        });
+
+        Double maxDistance = distances.max(Comparator.naturalOrder());
+        Float R = maxDistance.floatValue();
+
+        // Print Radius
+        // System.out.println("Radius R = " + R);
+
+        endTime = System.currentTimeMillis();
+        runningTime = endTime - startTime;
+        System.out.println("Running time of Round 3 = " + runningTime + " ms");
+
+        return R;
     }
 
     /**
