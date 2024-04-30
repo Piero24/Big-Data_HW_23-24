@@ -153,10 +153,6 @@ public class G016HW2 {
      * 
      * @return
      */
-
-
-
-     
     public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
 
         long startTime = System.currentTimeMillis();
