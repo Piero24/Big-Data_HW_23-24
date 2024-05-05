@@ -7,8 +7,7 @@
 
 // Command for execute the homowork from terminal:
 // -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-10k.csv 10 5 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-10k.csv 10 50 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/artificial1M_9_100.csv 10 200 4
 
 import java.util.*;
 import java.io.IOException;
@@ -77,6 +76,8 @@ public class G016HW2 {
 
         // Apply the MRFFT algorithm
         Float D = MRFFT(inputPoints, K);
+
+        System.out.println("Radius = " + D);
 
         // Apply the MRApproxOutliers algorithm
         MRApproxOutliers(inputPoints, D, M);
@@ -168,7 +169,7 @@ public class G016HW2 {
 
         long endTime = System.currentTimeMillis();
         long runningTime = endTime - startTime;
-        System.out.println("Running time of Round 1 = " + runningTime + " ms");
+        System.out.println("Running time of MRFFT Round 1 = " + runningTime + " ms");
 
         startTime = System.currentTimeMillis();
 
@@ -177,7 +178,7 @@ public class G016HW2 {
 
         endTime = System.currentTimeMillis();
         runningTime = endTime - startTime;
-        System.out.println("Running time of Round 2 = " + runningTime + " ms");
+        System.out.println("Running time of MRFFT Round 2 = " + runningTime + " ms");
 
         startTime = System.currentTimeMillis();
         
@@ -205,7 +206,7 @@ public class G016HW2 {
 
         endTime = System.currentTimeMillis();
         runningTime = endTime - startTime;
-        System.out.println("Running time of Round 3 = " + runningTime + " ms");
+        System.out.println("Running time of MRFFT Round 3 = " + runningTime + " ms");
 
         return R;
     }
@@ -221,6 +222,8 @@ public class G016HW2 {
 
         long totalPoints = 0;
         double lam = D / (2 * Math.sqrt(2));
+
+        long startTime = System.currentTimeMillis();
 
         // ** STEP A: Transform RDD into RDD of non-empty cells with their counts
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = inputPoints.mapToPair(pair -> {
@@ -295,7 +298,12 @@ public class G016HW2 {
 
         }
 
-        // System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
-        // System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
+        long endTime = System.currentTimeMillis();
+        long runningTime = endTime - startTime;
+
+        System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
+        System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
+
+        System.out.println("Running time of MRApproxOutliers = " + runningTime + " ms");
     }
 }
