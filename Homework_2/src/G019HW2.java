@@ -1,4 +1,4 @@
-// Copyright (C) by Group 019 All Rights Reserved
+// Copyright (C) by Group 016 All Rights Reserved
 //
 // This file is part of the project: Homework 2
 //
@@ -6,28 +6,30 @@
 // Date: Apr 2024
 
 // Command for execute the homowork from terminal:
-// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/TestN15-input.txt 1.0 3 9 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/uber-10k.csv 0.02 10 5 2
-// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G019HW1 ./Homework_2/Data/uber-10k.csv 0.02 10 50 2
+// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/artificial1M_9_100.csv 10 200 4
 
 import java.util.*;
 import java.io.IOException;
 
 import scala.Tuple2;
 import scala.Tuple3;
-import java.util.List;
-import java.util.ArrayList;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.broadcast.Broadcast;
 
 
-public class G019HW2 {
+public class G016HW2 {
+
+    private static JavaSparkContext sc;
+    // Broadcast the centers
+    public static Broadcast<List<Tuple2<Float, Float>>> broadcastCenters;
 
     /**
-     * 
+     *
      *
      * @param args
      * @throws IOException
@@ -35,8 +37,8 @@ public class G019HW2 {
     public static void main(String[] args) throws IOException {
 
         // Check if filename is provided as command-line argument
-        if (args.length < 5) {
-            System.out.println("Please provide filename, D, M, K, and L as command-line arguments");
+        if (args.length < 4) {
+            System.out.println("Please provide filename, M, K, and L as command-line arguments");
             return;
         }
 
@@ -49,8 +51,9 @@ public class G019HW2 {
         // Number of Partitions
         int L = Integer.parseInt(args[3]);
 
-        SparkConf conf = new SparkConf(true).setAppName("G019HW1");
-        JavaSparkContext sc = new JavaSparkContext(conf);
+        SparkConf conf = new SparkConf(true).setAppName("G016HW2");
+        sc = new JavaSparkContext(conf);
+        // JavaSparkContext sc = new JavaSparkContext(conf);
         sc.setLogLevel("WARN");
 
         JavaRDD<String> rawData = sc.textFile(filename);
@@ -71,10 +74,12 @@ public class G019HW2 {
         long totalPoints = inputPoints.count();
         System.out.println("Number of points: " + totalPoints);
 
-        //
+        // Apply the MRFFT algorithm
         Float D = MRFFT(inputPoints, K);
 
-        //
+        System.out.println("Radius = " + D);
+
+        // Apply the MRApproxOutliers algorithm
         MRApproxOutliers(inputPoints, D, M);
 
         // Close the JavaSparkContext
@@ -91,6 +96,125 @@ public class G019HW2 {
     }
 
     /**
+     * Computes the Euclidean distance between two points.
+     *
+     * @param p1 A point represented as a Tuple2<Float, Float>
+     * @param p2 A point represented as a Tuple2<Float, Float>
+     *
+     * @return The Euclidean distance between the two points.
+     */
+    private static double distance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
+        return Math.sqrt(Math.pow(p1._1 - p2._1, 2) + Math.pow(p1._2 - p2._2, 2));
+    }
+
+    /**
+     * Implements Farthest-First Traversal algorithm, through standard sequential code.
+     * NOTE: The implementation should run in O(|P| * K) time.
+     *
+     * @param P A set of points represented as a list of Tuple2<Float, Float>
+     * @param K Number of centers
+     *
+     * @return An ArrayList that is a set C of K centers.
+     */
+    public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
+        List<Tuple2<Float, Float>> C = new ArrayList<>();
+        C.add(P.get(0));
+
+        for (int i = 1; i < K; i++) {
+            double maxDist = -1;
+            Tuple2<Float, Float> maxPoint = null;
+
+            for (Tuple2<Float, Float> p : P) {
+                double minDist = Double.MAX_VALUE;
+
+                for (Tuple2<Float, Float> c : C) {
+                    double currentDistance = distance(p, c);
+
+                    if (currentDistance < minDist) {
+                        minDist = currentDistance;
+                    }
+                }
+
+                if (minDist > maxDist) {
+                    maxDist = minDist;
+                    maxPoint = p;
+                }
+            }
+
+            C.add(maxPoint);
+        }
+        return C;
+    }
+
+    /**
+     *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
+     *
+     * @param P
+     * @param K
+     *
+     * @return
+     */
+    public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
+
+        long startTime = System.currentTimeMillis();
+
+        // ** ROUND 1: Compute coreset **
+        List<Tuple2<Float, Float>> coreset = P.mapPartitions(pointsIter -> {
+            List<Tuple2<Float, Float>> localCoreset = new ArrayList<>();
+            while (pointsIter.hasNext() && localCoreset.size() < K) {
+                localCoreset.add(pointsIter.next());
+            }
+            return localCoreset.iterator();
+        }).collect(); // Collect only K points per partition
+
+        long endTime = System.currentTimeMillis();
+        long runningTime = endTime - startTime;
+        System.out.println("Running time of MRFFT Round 1 = " + runningTime + " ms");
+
+        startTime = System.currentTimeMillis();
+
+        // ** ROUND 2: Compute final centers
+        List<Tuple2<Float, Float>> C = SequentialFFT(coreset, K);
+
+        endTime = System.currentTimeMillis();
+        runningTime = endTime - startTime;
+        System.out.println("Running time of MRFFT Round 2 = " + runningTime + " ms");
+
+        startTime = System.currentTimeMillis();
+
+        // ** ROUND 3: Compute the radius R of the clustering induced by the centers
+        // Broadcast the centers
+        broadcastCenters = sc.broadcast(C);
+
+        // Compute the radius R of the clustering induced by the centers
+        JavaRDD<Double> distances = P.map(point -> {
+            double minDist = Float.MAX_VALUE;
+            List<Tuple2<Float, Float>> localC = broadcastCenters.value();
+            for (Tuple2<Float, Float> center : localC) {
+                double dist = distance(point, center);
+                if (dist < minDist) {
+                    minDist = dist;
+                }
+            }
+            return minDist;
+        });
+
+        // After the map operation, perform a reduce operation to find the maximum of the minimum distances
+        double maxMinDist = distances.reduce((x, y) -> Math.max(x, y));
+        // Double maxDistance = distances.max(Comparator.naturalOrder());
+        Float R = (float) maxMinDist;;
+
+        // Print Radius
+        // System.out.println("Radius R = " + R);
+
+        endTime = System.currentTimeMillis();
+        runningTime = endTime - startTime;
+        System.out.println("Running time of MRFFT Round 3 = " + runningTime + " ms");
+
+        return R;
+    }
+
+    /**
      *
      *
      * @param inputPoints
@@ -101,6 +225,8 @@ public class G019HW2 {
 
         long totalPoints = 0;
         double lam = D / (2 * Math.sqrt(2));
+
+        long startTime = System.currentTimeMillis();
 
         // ** STEP A: Transform RDD into RDD of non-empty cells with their counts
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = inputPoints.mapToPair(pair -> {
@@ -115,7 +241,7 @@ public class G019HW2 {
         int insideR3 = 0;
 
         List<Tuple2<Tuple2<Integer, Integer>, Integer>> listOfCellCounts = cellCountsRDD.collect();
-        
+
         // ** STEP B: Compute the values |N3(C)| and |N7(C)| for each cell C drawn from the previous step
         List<Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>>> listOfCells = new ArrayList<>();
         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : listOfCellCounts) {
@@ -161,8 +287,8 @@ public class G019HW2 {
 
 
             Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> updatedPoint = new Tuple2<>(
-                cell._1(), new Tuple3<>(cell._2(),count3,count7
-                ));
+                    cell._1(), new Tuple3<>(cell._2(),count3, count7
+            ));
 
             listOfCells.add(updatedPoint);
             if (count7 > M) {
@@ -175,50 +301,12 @@ public class G019HW2 {
 
         }
 
+        long endTime = System.currentTimeMillis();
+        long runningTime = endTime - startTime;
+
         System.out.println("Number of sure outliers = " + (totalPoints - insideR7));
         System.out.println("Number of uncertain points = " + (insideR7 - insideR3));
+
+        System.out.println("Running time of MRApproxOutliers = " + runningTime + " ms");
     }
-
-    /**
-     * The implementation should run in O(|P| * K) time.
-     *
-     * @param P
-     * @param K
-     * 
-     * @return An ArrayList that is a set C of K centers.
-     */
-    public static List<Tuple2<Float, Float>> sequentialFFT(List<Tuple2<Float, Float>> P, int K) {
-        List<Tuple2<Float, Float>> C = new ArrayList<>();
-        
-        //
-        //* Your code here
-        //
-        
-        return C;
-    }
-
-    /**
-     *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
-     *
-     * @param P
-     * @param M
-     * 
-     * @return
-     */
-    public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
-
-        Float D = 0.0f;
-        List<Tuple2<Float, Float>> Pp = P.collect();
-        List<Tuple2<Float, Float>> C = sequentialFFT(Pp, K);
-        
-        //
-        //* Your code here
-        //
-        
-        return D;
-    }
-
-
-
-
 }
