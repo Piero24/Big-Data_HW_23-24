@@ -1,9 +1,9 @@
-// Copyright (C) by Group 019 All Rights Reserved
+// Copyright (C) by Group 016 All Rights Reserved
 //
 // This file is part of the project: Homework 2
 //
 // Written by: Pietrobon Andrea, Friso Giovanni, Agostini Francesco
-// Date: Apr 2024
+// Date: May 2024
 
 // Command for execute the homowork from terminal:
 // -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
@@ -25,15 +25,17 @@ import org.apache.spark.broadcast.Broadcast;
 
 public class G016HW2 {
 
+    // JavaSparkContext
     private static JavaSparkContext sc;
+
     // Broadcast the centers
     public static Broadcast<List<Tuple2<Float, Float>>> broadcastCenters;
 
     /**
-     * 
+     * Main method that executes the MRFFT and MRApproxOutliers algorithms.
      *
-     * @param args
-     * @throws IOException
+     * @param args Command-line arguments: filename, M, K and L
+     * @throws IOException If an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
 
@@ -163,11 +165,11 @@ public class G016HW2 {
 
     /**
      *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
-     *
-     * @param P
-     * @param M
      * 
-     * @return
+     * @param P A set of points represented as a JavaRDD<Tuple2<Float, Float>>
+     * @param K Number of centers to compute
+     * 
+     * @return The radius D of the clustering induced by the centers
      */
     public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
 
@@ -224,11 +226,11 @@ public class G016HW2 {
     }
 
     /**
+     * Performs MR (MapReduce) approximate outlier detection.
      *
-     *
-     * @param inputPoints
-     * @param D
-     * @param M
+     * @param inputPoints RDD of Pair objects
+     * @param D Radius of the clustering induced by the centers
+     * @param M Number of nearest neighbors
      */
     public static void MRApproxOutliers(JavaRDD<Tuple2<Float, Float>> inputPoints, float D, int M) {
 

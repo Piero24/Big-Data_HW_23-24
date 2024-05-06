@@ -165,6 +165,7 @@ public class G016HW1 {
             }
         }
     }
+    
     /**
      * Performs MR (MapReduce) approximate outlier detection.
      *
@@ -173,7 +174,6 @@ public class G016HW1 {
      * @param M Minimum number of neighbors
      * @param K Number of outliers to find
      */
-
     public static void MRApproxOutliers(JavaRDD<Tuple2<Float, Float>> inputPoints, float D, int M, int K) {
 
         long totalPoints = 0;
