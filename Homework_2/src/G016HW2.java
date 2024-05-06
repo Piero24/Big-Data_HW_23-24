@@ -199,16 +199,13 @@ public class G016HW2 {
         });
 
         Double maxDistance = distances.max(Comparator.naturalOrder());
-        Float R = maxDistance.floatValue();
-
-        // Print Radius
-        // System.out.println("Radius R = " + R);
+        Float D = maxDistance.floatValue();
 
         endTime = System.currentTimeMillis();
         runningTime = endTime - startTime;
         System.out.println("Running time of MRFFT Round 3 = " + runningTime + " ms");
 
-        return R;
+        return D;
     }
 
     /**
