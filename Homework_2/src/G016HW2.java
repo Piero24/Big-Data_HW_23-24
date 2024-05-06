@@ -8,6 +8,7 @@
 // Command for execute the homowork from terminal:
 // -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
 // -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/artificial1M_9_100.csv 10 200 4
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-large.csv 3 100 16
 
 import java.util.*;
 import java.io.IOException;
