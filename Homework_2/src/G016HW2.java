@@ -97,15 +97,29 @@ public class G016HW2 {
     }
 
     /**
-     * Computes the Euclidean distance between two points.
+     * Compute the squared Euclidean distance between two points.
      *
      * @param p1 A point represented as a Tuple2<Float, Float>
      * @param p2 A point represented as a Tuple2<Float, Float>
      * 
-     * @return The Euclidean distance between the two points.
+     * @return The squared Euclidean distance between p1 and p2
+     */
+    private static double squaredEuclideanDistance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
+        float dx = p1._1 - p2._1;
+        float dy = p1._2 - p2._2;
+        return dx * dx + dy * dy;
+    }
+
+    /**
+     * Compute the Euclidean distance between two points.
+     *
+     * @param p1 A point represented as a Tuple2<Float, Float>
+     * @param p2 A point represented as a Tuple2<Float, Float>
+     * 
+     * @return The Euclidean distance between p1 and p2
      */
     private static double distance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
-        return Math.sqrt(Math.pow(p1._1 - p2._1, 2) + Math.pow(p1._2 - p2._2, 2));
+        return Math.sqrt(squaredEuclideanDistance(p1, p2));
     }
 
     /**
@@ -129,7 +143,7 @@ public class G016HW2 {
                 double minDist = Double.MAX_VALUE;
 
                 for (Tuple2<Float, Float> c : C) {
-                    double currentDistance = distance(p, c);
+                    double currentDistance = squaredEuclideanDistance(p, c);
 
                     if (currentDistance < minDist) {
                         minDist = currentDistance;
