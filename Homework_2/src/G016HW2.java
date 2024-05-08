@@ -3,11 +3,12 @@
 // This file is part of the project: Homework 2
 //
 // Written by: Pietrobon Andrea, Friso Giovanni, Agostini Francesco
-// Date: Apr 2024
+// Date: May 2024
 
-// Command for execute the homowork from terminal:
+// Command for execute the homework from terminal:
 // -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
 // -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/artificial1M_9_100.csv 10 200 4
+// -XX:ReservedCodeCacheSize=512m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-large.csv 3 100 16
 
 import java.util.*;
 import java.io.IOException;
@@ -24,15 +25,17 @@ import org.apache.spark.broadcast.Broadcast;
 
 public class G016HW2 {
 
+    // JavaSparkContext
     private static JavaSparkContext sc;
+
     // Broadcast the centers
     public static Broadcast<List<Tuple2<Float, Float>>> broadcastCenters;
 
     /**
+     * Main method that executes the MRFFT and MRApproxOutliers algorithms.
      *
-     *
-     * @param args
-     * @throws IOException
+     * @param args Command-line arguments: filename, M, K and L
+     * @throws IOException If an I/O error occurs
      */
     public static void main(String[] args) throws IOException {
 
@@ -96,15 +99,29 @@ public class G016HW2 {
     }
 
     /**
-     * Computes the Euclidean distance between two points.
+     * Compute the squared Euclidean distance between two points.
      *
      * @param p1 A point represented as a Tuple2<Float, Float>
      * @param p2 A point represented as a Tuple2<Float, Float>
+     * 
+     * @return The squared Euclidean distance between p1 and p2
+     */
+    private static double squaredEuclideanDistance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
+        float dx = p1._1 - p2._1;
+        float dy = p1._2 - p2._2;
+        return dx * dx + dy * dy;
+    }
+
+    /**
+     * Compute the Euclidean distance between two points.
      *
-     * @return The Euclidean distance between the two points.
+     * @param p1 A point represented as a Tuple2<Float, Float>
+     * @param p2 A point represented as a Tuple2<Float, Float>
+     * 
+     * @return The Euclidean distance between p1 and p2
      */
     private static double distance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
-        return Math.sqrt(Math.pow(p1._1 - p2._1, 2) + Math.pow(p1._2 - p2._2, 2));
+        return Math.sqrt(squaredEuclideanDistance(p1, p2));
     }
 
     /**
@@ -113,59 +130,71 @@ public class G016HW2 {
      *
      * @param P A set of points represented as a list of Tuple2<Float, Float>
      * @param K Number of centers
-     *
+     * 
      * @return An ArrayList that is a set C of K centers.
      */
     public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
         List<Tuple2<Float, Float>> C = new ArrayList<>();
+        double[] nearDist = new double[P.size()];
+        List<Tuple2<Float, Float>> nearCenter = new ArrayList<>(Collections.nCopies(P.size(), null)); // Initialize with null values
+
+        // Add the first point of P to C
         C.add(P.get(0));
 
-        for (int i = 1; i < K; i++) {
+        // Initialize nearDist with squared distances from each point to the first point in C
+        for (int i = 0; i < P.size(); i++) {
+            nearDist[i] = squaredEuclideanDistance(C.get(0), P.get(i));
+        }
+
+        // Main loop to select K points
+        for (int i = 0; i < K; i++) {
             double maxDist = -1;
-            Tuple2<Float, Float> maxPoint = null;
+            int max_index = -1;
 
-            for (Tuple2<Float, Float> p : P) {
-                double minDist = Double.MAX_VALUE;
-
-                for (Tuple2<Float, Float> c : C) {
-                    double currentDistance = distance(p, c);
-
-                    if (currentDistance < minDist) {
-                        minDist = currentDistance;
-                    }
-                }
-
-                if (minDist > maxDist) {
-                    maxDist = minDist;
-                    maxPoint = p;
+            // Update nearDist and nearCenter
+            for (int j = 0; j < P.size(); j++) {
+                double currentDistance = squaredEuclideanDistance(P.get(j), C.get(i));
+                if (currentDistance < nearDist[j]) {
+                    nearDist[j] = currentDistance;
+                    nearCenter.set(j, C.get(i)); // Update the value at index j
                 }
             }
 
-            C.add(maxPoint);
+            // Find the point with maximum distance
+            for (int j = 0; j < P.size(); j++) {
+                if (maxDist < nearDist[j]) {
+                    maxDist = nearDist[j];
+                    max_index = j;
+                }
+            }
+
+            // Add the farthest point to C
+            C.add(P.get(max_index));
         }
+
         return C;
     }
 
     /**
      *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
-     *
-     * @param P
-     * @param K
-     *
-     * @return
+     * 
+     * @param P A set of points represented as a JavaRDD<Tuple2<Float, Float>>
+     * @param K Number of centers to compute
+     * 
+     * @return The radius D of the clustering induced by the centers
      */
     public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
 
         long startTime = System.currentTimeMillis();
 
-        // ** ROUND 1: Compute coreset **
+        // ** ROUND 1: Compute coreset
         List<Tuple2<Float, Float>> coreset = P.mapPartitions(pointsIter -> {
             List<Tuple2<Float, Float>> localCoreset = new ArrayList<>();
-            while (pointsIter.hasNext() && localCoreset.size() < K) {
-                localCoreset.add(pointsIter.next());
-            }
+            List<Tuple2<Float, Float>> pointsList = new ArrayList<>();
+            pointsIter.forEachRemaining(pointsList::add);
+            localCoreset = SequentialFFT(pointsList, K);
             return localCoreset.iterator();
-        }).collect(); // Collect only K points per partition
+        }).collect();
 
         long endTime = System.currentTimeMillis();
         long runningTime = endTime - startTime;
@@ -181,7 +210,7 @@ public class G016HW2 {
         System.out.println("Running time of MRFFT Round 2 = " + runningTime + " ms");
 
         startTime = System.currentTimeMillis();
-
+        
         // ** ROUND 3: Compute the radius R of the clustering induced by the centers
         // Broadcast the centers
         broadcastCenters = sc.broadcast(C);
@@ -189,8 +218,7 @@ public class G016HW2 {
         // Compute the radius R of the clustering induced by the centers
         JavaRDD<Double> distances = P.map(point -> {
             double minDist = Float.MAX_VALUE;
-            List<Tuple2<Float, Float>> localC = broadcastCenters.value();
-            for (Tuple2<Float, Float> center : localC) {
+            for (Tuple2<Float, Float> center : broadcastCenters.value()) {
                 double dist = distance(point, center);
                 if (dist < minDist) {
                     minDist = dist;
@@ -199,27 +227,22 @@ public class G016HW2 {
             return minDist;
         });
 
-        // After the map operation, perform a reduce operation to find the maximum of the minimum distances
-        double maxMinDist = distances.reduce((x, y) -> Math.max(x, y));
-        // Double maxDistance = distances.max(Comparator.naturalOrder());
-        Float R = (float) maxMinDist;;
-
-        // Print Radius
-        // System.out.println("Radius R = " + R);
+        Double maxDistance = distances.max(Comparator.naturalOrder());
+        Float D = maxDistance.floatValue();
 
         endTime = System.currentTimeMillis();
         runningTime = endTime - startTime;
         System.out.println("Running time of MRFFT Round 3 = " + runningTime + " ms");
 
-        return R;
+        return D;
     }
 
     /**
+     * Performs MR (MapReduce) approximate outlier detection.
      *
-     *
-     * @param inputPoints
-     * @param D
-     * @param M
+     * @param inputPoints RDD of Pair objects
+     * @param D Radius of the clustering induced by the centers
+     * @param M Number of nearest neighbors
      */
     public static void MRApproxOutliers(JavaRDD<Tuple2<Float, Float>> inputPoints, float D, int M) {
 
@@ -241,7 +264,7 @@ public class G016HW2 {
         int insideR3 = 0;
 
         List<Tuple2<Tuple2<Integer, Integer>, Integer>> listOfCellCounts = cellCountsRDD.collect();
-
+        
         // ** STEP B: Compute the values |N3(C)| and |N7(C)| for each cell C drawn from the previous step
         List<Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>>> listOfCells = new ArrayList<>();
         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : listOfCellCounts) {
@@ -287,8 +310,8 @@ public class G016HW2 {
 
 
             Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> updatedPoint = new Tuple2<>(
-                    cell._1(), new Tuple3<>(cell._2(),count3, count7
-            ));
+                cell._1(), new Tuple3<>(cell._2(),count3, count7
+                ));
 
             listOfCells.add(updatedPoint);
             if (count7 > M) {
