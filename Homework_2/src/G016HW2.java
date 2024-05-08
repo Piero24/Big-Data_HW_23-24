@@ -219,7 +219,8 @@ public class G016HW2 {
         
         // ** ROUND 3: Compute the radius R of the clustering induced by the centers
         // Broadcast the centers
-        broadcastCenters = sc.broadcast(C);
+        //broadcastCenters = sc.broadcast(C);
+        Broadcast<List<Tuple2<Float, Float>>> broadcastCenters = sc.broadcast(C);
 
         // Compute the radius R of the clustering induced by the centers
         JavaRDD<Double> distances = P.map(point -> {
