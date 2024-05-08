@@ -133,33 +133,51 @@ public class G016HW2 {
      * 
      * @return An ArrayList that is a set C of K centers.
      */
-    public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
+   public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
         List<Tuple2<Float, Float>> C = new ArrayList<>();
+        double[] nearDist = new double[P.size()];
+        List<Tuple2<Float, Float>> nearCenter = new ArrayList<>(Collections.nCopies(P.size(), null)); // Initialize with null values
+        Set<Integer> selectedIndices = new HashSet<>(); // Keep track of selected indices
+
+        // Add the first point of P to C
         C.add(P.get(0));
+        selectedIndices.add(0);
 
-        for (int i = 1; i < K; i++) {
+        // Initialize nearDist with squared distances from each point to the first point in C
+        for (int i = 0; i < P.size(); i++) {
+            nearDist[i] = squaredEuclideanDistance(C.get(0), P.get(i));
+        }
+
+        // Main loop to select K points
+        for (int i = 0; i < K; i++) {
             double maxDist = -1;
-            Tuple2<Float, Float> maxPoint = null;
+            int max_index = -1;
 
-            for (Tuple2<Float, Float> p : P) {
-                double minDist = Double.MAX_VALUE;
-
-                for (Tuple2<Float, Float> c : C) {
-                    double currentDistance = squaredEuclideanDistance(p, c);
-
-                    if (currentDistance < minDist) {
-                        minDist = currentDistance;
-                    }
+            // Update nearDist and nearCenter, excluding points already in C
+            for (int j = 0; j < P.size(); j++) {
+                if (selectedIndices.contains(j)) {
+                    continue; // Skip points already in C
                 }
-
-                if (minDist > maxDist) {
-                    maxDist = minDist;
-                    maxPoint = p;
+                double currentDistance = squaredEuclideanDistance(P.get(j), C.get(i));
+                if (currentDistance < nearDist[j]) {
+                    nearDist[j] = currentDistance;
+                    nearCenter.set(j, C.get(i)); // Update the value at index j
                 }
             }
 
-            C.add(maxPoint);
+            // Find the point with maximum distance, excluding points already in C
+            for (int j = 0; j < P.size(); j++) {
+                if (!selectedIndices.contains(j) && maxDist < nearDist[j]) {
+                    maxDist = nearDist[j];
+                    max_index = j;
+                }
+            }
+
+            // Add the farthest point to C and mark its index as selected
+            C.add(P.get(max_index));
+            selectedIndices.add(max_index);
         }
+
         return C;
     }
 
@@ -321,4 +339,6 @@ public class G016HW2 {
 
         System.out.println("Running time of MRApproxOutliers = " + runningTime + " ms");
     }
+
 }
+
