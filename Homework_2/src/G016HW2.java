@@ -5,7 +5,7 @@
 // Written by: Pietrobon Andrea, Friso Giovanni, Agostini Francesco
 // Date: May 2024
 
-// Command for execute the homowork from terminal:
+// Command for execute the homework from terminal:
 // -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
 // -XX:ReservedCodeCacheSize=2048m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/artificial1M_9_100.csv 10 200 4
 // -XX:ReservedCodeCacheSize=2048m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-large.csv 3 100 16
