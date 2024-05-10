@@ -55,6 +55,7 @@ public class G016HW2 {
         int L = Integer.parseInt(args[3]);
 
         SparkConf conf = new SparkConf(true).setAppName("G016HW2");
+        conf.set("spark.locality.wait", "0s");
         sc = new JavaSparkContext(conf);
         // JavaSparkContext sc = new JavaSparkContext(conf);
         sc.setLogLevel("WARN");
