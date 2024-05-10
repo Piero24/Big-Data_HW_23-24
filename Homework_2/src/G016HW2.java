@@ -133,8 +133,8 @@ public class G016HW2 {
      * 
      * @return An ArrayList that is a set C of K centers.
      */
-   public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
-        List<Tuple2<Float, Float>> C = new ArrayList<>();
+    public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
+        List<Tuple2<Float, Float>> C = new ArrayList<>(K);
         double[] nearDist = new double[P.size()];
         List<Tuple2<Float, Float>> nearCenter = new ArrayList<>(Collections.nCopies(P.size(), null)); // Initialize with null values
         Set<Integer> selectedIndices = new HashSet<>(); // Keep track of selected indices
