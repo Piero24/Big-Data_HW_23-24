@@ -104,7 +104,7 @@ public class G016HW2 {
      *
      * @param p1 A point represented as a Tuple2<Float, Float>
      * @param p2 A point represented as a Tuple2<Float, Float>
-     * 
+     *
      * @return The squared Euclidean distance between p1 and p2
      */
     private static double squaredEuclideanDistance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
@@ -118,7 +118,7 @@ public class G016HW2 {
      *
      * @param p1 A point represented as a Tuple2<Float, Float>
      * @param p2 A point represented as a Tuple2<Float, Float>
-     * 
+     *
      * @return The Euclidean distance between p1 and p2
      */
     private static double distance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
@@ -131,7 +131,7 @@ public class G016HW2 {
      *
      * @param P A set of points represented as a list of Tuple2<Float, Float>
      * @param K Number of centers
-     * 
+     *
      * @return An ArrayList that is a set C of K centers.
      */
     public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
@@ -164,11 +164,8 @@ public class G016HW2 {
                     nearDist[j] = currentDistance;
                     nearCenter.set(j, C.get(i)); // Update the value at index j
                 }
-            }
-
-            // Find the point with maximum distance, excluding points already in C
-            for (int j = 0; j < P.size(); j++) {
-                if (!selectedIndices.contains(j) && maxDist < nearDist[j]) {
+                // Find the point with maximum distance
+                if (maxDist < nearDist[j]) {
                     maxDist = nearDist[j];
                     max_index = j;
                 }
@@ -184,10 +181,10 @@ public class G016HW2 {
 
     /**
      *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
-     * 
+     *
      * @param P A set of points represented as a JavaRDD<Tuple2<Float, Float>>
      * @param K Number of centers to compute
-     * 
+     *
      * @return The radius D of the clustering induced by the centers
      */
     public static Float MRFFT(JavaRDD<Tuple2<Float, Float>> P, int K) {
@@ -217,7 +214,7 @@ public class G016HW2 {
         System.out.println("Running time of MRFFT Round 2 = " + runningTime + " ms");
 
         startTime = System.currentTimeMillis();
-        
+
         // ** ROUND 3: Compute the radius R of the clustering induced by the centers
         // Broadcast the centers
         //broadcastCenters = sc.broadcast(C);
@@ -272,7 +269,7 @@ public class G016HW2 {
         int insideR3 = 0;
 
         List<Tuple2<Tuple2<Integer, Integer>, Integer>> listOfCellCounts = cellCountsRDD.collect();
-        
+
         // ** STEP B: Compute the values |N3(C)| and |N7(C)| for each cell C drawn from the previous step
         List<Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>>> listOfCells = new ArrayList<>();
         for (Tuple2<Tuple2<Integer, Integer>, Integer> cell : listOfCellCounts) {
@@ -318,8 +315,8 @@ public class G016HW2 {
 
 
             Tuple2<Tuple2<Integer, Integer>,Tuple3<Integer, Integer, Integer>> updatedPoint = new Tuple2<>(
-                cell._1(), new Tuple3<>(cell._2(),count3, count7
-                ));
+                    cell._1(), new Tuple3<>(cell._2(),count3, count7
+            ));
 
             listOfCells.add(updatedPoint);
             if (count7 > M) {
@@ -342,4 +339,3 @@ public class G016HW2 {
     }
 
 }
-
