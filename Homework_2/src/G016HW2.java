@@ -150,7 +150,7 @@ public class G016HW2 {
         }
 
         // Main loop to select K points
-        for (int i = 0; i < K; i++) {
+        for (int i = 0; i < K - 1; i++) {
             double maxDist = -1;
             int max_index = -1;
 
@@ -202,6 +202,8 @@ public class G016HW2 {
 
         long endTime = System.currentTimeMillis();
         long runningTime = endTime - startTime;
+
+        System.out.println("Number of points in the coreset = " + coreset.size());
         System.out.println("Running time of MRFFT Round 1 = " + runningTime + " ms");
 
         startTime = System.currentTimeMillis();
