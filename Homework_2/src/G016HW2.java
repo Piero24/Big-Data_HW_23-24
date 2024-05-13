@@ -29,7 +29,7 @@ public class G016HW2 {
     private static JavaSparkContext sc;
 
     // Broadcast the centers
-    public static Broadcast<List<Tuple2<Float, Float>>> broadcastCenters;
+    // public static Broadcast<List<Tuple2<Float, Float>>> broadcastCenters;
 
     /**
      * Main method that executes the MRFFT and MRApproxOutliers algorithms.
@@ -135,34 +135,40 @@ public class G016HW2 {
      * @return An ArrayList that is a set C of K centers.
      */
     public static List<Tuple2<Float, Float>> SequentialFFT(List<Tuple2<Float, Float>> P, int K) {
+
+        if (P.isEmpty()) {
+            throw new IllegalArgumentException("Input list P is empty");
+        }
+        
         List<Tuple2<Float, Float>> C = new ArrayList<>(K);
-        double[] nearDist = new double[P.size()];
-        List<Tuple2<Float, Float>> nearCenter = new ArrayList<>(Collections.nCopies(P.size(), null)); // Initialize with null values
         Set<Integer> selectedIndices = new HashSet<>(); // Keep track of selected indices
 
         // Add the first point of P to C
         C.add(P.get(0));
         selectedIndices.add(0);
 
-        // Initialize nearDist with squared distances from each point to the first point in C
+        // Initialize nearDist outside the loop
+        double[] nearDist = new double[P.size()];
         for (int i = 0; i < P.size(); i++) {
             nearDist[i] = squaredEuclideanDistance(C.get(0), P.get(i));
         }
 
         // Main loop to select K points
-        for (int i = 0; i < K - 1; i++) {
+        for (int i = 0; i < K-1; i++) {
             double maxDist = -1;
             int max_index = -1;
 
-            // Update nearDist and nearCenter, excluding points already in C
+            // Update nearDist, excluding points already in C
             for (int j = 0; j < P.size(); j++) {
                 if (selectedIndices.contains(j)) {
                     continue; // Skip points already in C
                 }
-                double currentDistance = squaredEuclideanDistance(P.get(j), C.get(i));
-                if (currentDistance < nearDist[j]) {
-                    nearDist[j] = currentDistance;
-                    nearCenter.set(j, C.get(i)); // Update the value at index j
+                if(i!=0) {
+                    double currentDistance = squaredEuclideanDistance(P.get(j), C.get(i));
+                    
+                    if (currentDistance < nearDist[j]) {
+                        nearDist[j] = currentDistance;
+                    }
                 }
                 // Find the point with maximum distance
                 if (maxDist < nearDist[j]) {
@@ -203,7 +209,7 @@ public class G016HW2 {
         long endTime = System.currentTimeMillis();
         long runningTime = endTime - startTime;
 
-        System.out.println("Number of points in the coreset = " + coreset.size());
+        // System.out.println("Number of points in the coreset = " + coreset.size());
         System.out.println("Running time of MRFFT Round 1 = " + runningTime + " ms");
 
         startTime = System.currentTimeMillis();
