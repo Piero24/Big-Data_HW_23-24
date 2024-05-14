@@ -31,3 +31,7 @@ gradle/
 .vscode/
 gradlew.bat
 .DS_Store
+
+artificial10M_9_100.csv
+artificial20M_9_100.csv
+artificial50M_9_100.csv
