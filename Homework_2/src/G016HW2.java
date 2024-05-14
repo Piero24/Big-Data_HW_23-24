@@ -71,15 +71,13 @@ public class G016HW2 {
         });
 
         inputPoints = inputPoints.repartition(L).cache();
-
-        clearScreen();
         System.out.println(filename + " M=" + M + " K=" + K + " L=" + + L);
 
         long totalPoints = inputPoints.count();
         System.out.println("Number of points: " + totalPoints);
 
         // Apply the MRFFT algorithm
-        Float D = MRFFT(inputPoints, K);
+        float D = MRFFT(inputPoints, K);
 
         System.out.println("Radius = " + D);
 
@@ -88,15 +86,6 @@ public class G016HW2 {
 
         // Close the JavaSparkContext
         sc.close();
-    }
-
-    /**
-     * Clears the console screen.
-     *
-     */
-    public static void clearScreen() {
-        System.out.print("\033[H\033[2J");
-        System.out.flush();
     }
 
     /**
@@ -112,7 +101,6 @@ public class G016HW2 {
         float dy = p1._2 - p2._2;
         return dx * dx + dy * dy;
     }
-
 
     /**
      * Implements Farthest-First Traversal algorithm, through standard sequential code.
@@ -166,7 +154,7 @@ public class G016HW2 {
     }
 
     /**
-     *! Pp must be changed in P (as asked by the prof "otherwise it will be strongly penalized") but return an error
+     * Implements MRFFT algorithm, through MapReduce.
      *
      * @param P A set of points represented as a JavaRDD<Tuple2<Float, Float>>
      * @param K Number of centers to compute
