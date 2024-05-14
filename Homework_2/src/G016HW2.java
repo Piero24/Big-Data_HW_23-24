@@ -6,7 +6,7 @@
 // Date: May 2024
 
 // Command for execute the homework from terminal:
-// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 9 2
+// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 5 2
 // -XX:ReservedCodeCacheSize=2048m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/artificial1M_9_100.csv 10 200 4
 // -XX:ReservedCodeCacheSize=2048m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-large.csv 3 100 16
 
@@ -49,7 +49,7 @@ public class G016HW2 {
         String filename = args[0];
         // Number of Nearest Neighbors
         int M = Integer.parseInt(args[1]);
-        // Number of Neighbors to Check
+        // Number of Centers
         int K = Integer.parseInt(args[2]);
         // Number of Partitions
         int L = Integer.parseInt(args[3]);
@@ -113,17 +113,6 @@ public class G016HW2 {
         return dx * dx + dy * dy;
     }
 
-    /**
-     * Compute the Euclidean distance between two points.
-     *
-     * @param p1 A point represented as a Tuple2<Float, Float>
-     * @param p2 A point represented as a Tuple2<Float, Float>
-     *
-     * @return The Euclidean distance between p1 and p2
-     */
-    private static double distance(Tuple2<Float, Float> p1, Tuple2<Float, Float> p2) {
-        return Math.sqrt(squaredEuclideanDistance(p1, p2));
-    }
 
     /**
      * Implements Farthest-First Traversal algorithm, through standard sequential code.
@@ -141,11 +130,8 @@ public class G016HW2 {
         }
         
         List<Tuple2<Float, Float>> C = new ArrayList<>(K);
-        Set<Integer> selectedIndices = new HashSet<>(); // Keep track of selected indices
-
         // Add the first point of P to C
         C.add(P.get(0));
-        selectedIndices.add(0);
 
         // Initialize nearDist outside the loop
         double[] nearDist = new double[P.size()];
@@ -157,12 +143,8 @@ public class G016HW2 {
         for (int i = 0; i < K-1; i++) {
             double maxDist = -1;
             int max_index = -1;
-
             // Update nearDist, excluding points already in C
             for (int j = 0; j < P.size(); j++) {
-                if (selectedIndices.contains(j)) {
-                    continue; // Skip points already in C
-                }
                 if(i!=0) {
                     double currentDistance = squaredEuclideanDistance(P.get(j), C.get(i));
                     
@@ -179,9 +161,7 @@ public class G016HW2 {
 
             // Add the farthest point to C and mark its index as selected
             C.add(P.get(max_index));
-            selectedIndices.add(max_index);
         }
-
         return C;
     }
 
@@ -232,7 +212,7 @@ public class G016HW2 {
         JavaRDD<Double> distances = P.map(point -> {
             double minDist = Float.MAX_VALUE;
             for (Tuple2<Float, Float> center : broadcastCenters.value()) {
-                double dist = distance(point, center);
+                double dist = squaredEuclideanDistance(point, center);
                 if (dist < minDist) {
                     minDist = dist;
                 }
@@ -240,8 +220,9 @@ public class G016HW2 {
             return minDist;
         }).cache();
 
-        Double maxDistance = distances.max(Comparator.naturalOrder());
-        Float D = maxDistance.floatValue();
+        double maxDistance = distances.max(Comparator.naturalOrder());
+        float D = (float) Math.sqrt(maxDistance);
+        // float D = maxDistance.floatValue();
 
         endTime = System.currentTimeMillis();
         runningTime = endTime - startTime;
