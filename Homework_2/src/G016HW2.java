@@ -237,7 +237,7 @@ public class G016HW2 {
         JavaPairRDD<Tuple2<Integer, Integer>, Integer> cellCountsRDD = inputPoints.mapToPair(pair -> {
                     Tuple2<Integer, Integer> cellId = new Tuple2<>((int) Math.floor(pair._1() / lam), (int) Math.floor(pair._2() / lam));
                     return new Tuple2<>(cellId, 1);
-                })
+                }).cache()
                 .filter(pair -> pair._2() > 0) // Filter out empty cells
                 .reduceByKey((count1, count2) -> count1 + count2)
                 .cache();
