@@ -24,7 +24,6 @@
 
 import org.apache.hadoop.util.hash.Hash;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.StorageLevels;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -56,8 +55,8 @@ public class G016HW3 {
      */
     public static void main(String[] args) throws Exception {
 
-        if (args.length != 5) {
-            throw new IllegalArgumentException("USAGE: item_num, frequency, accuracy, confidence, port");
+        if (args.length != 2) {
+            throw new IllegalArgumentException("USAGE: port, threshold");
         }
 
         // IMPORTANT: the master must be set to "local[*]" or "local[n]" with n > 1, otherwise
@@ -90,16 +89,10 @@ public class G016HW3 {
         // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         // INPUT READING
         // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        int n = Integer.parseInt(args[0]);
-        System.out.println("Number of items = " + n);
-        float phi = Float.parseFloat(args[1]);
-        System.out.println("Frequency threshold = " + phi);
-        float epsilon = Float.parseFloat(args[2]);
-        System.out.println("Accuracy parameter = " + epsilon);
-        float delta = Float.parseFloat(args[3]);
-        System.out.println("Confidence parameter = " + delta);
-        int portExp = Integer.parseInt(args[4]);
+        int portExp = Integer.parseInt(args[0]);
         System.out.println("Receiving data from port = " + portExp);
+        int THRESHOLD = Integer.parseInt(args[1]);
+        System.out.println("Threshold = " + THRESHOLD);
 
         // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         // DEFINING THE REQUIRED DATA STRUCTURES TO MAINTAIN THE STATE OF THE STREAM
@@ -107,52 +100,42 @@ public class G016HW3 {
         long[] streamLength = new long[1]; // Stream length (an array to be passed by reference)
         streamLength[0]=0L;
         HashMap<Long, Long> histogram = new HashMap<>(); // Hash Table for the distinct elements
-        HashMap<String, Long> itemCount = new HashMap<>();
+        
         // CODE TO PROCESS AN UNBOUNDED STREAM OF DATA IN BATCHES
         sc.socketTextStream("algo.dei.unipd.it", portExp, StorageLevels.MEMORY_AND_DISK)
-
-        /*Number of items processed = 1095145
-        Number of distinct items = 43621
-        Largest item = 4294473407
-
-        Number of items processed = 1065816
-        Number of distinct items = 42493
-        Largest item = 4294473407
-
-        Number of items processed = 1019151
-        Number of distinct items = 40649
-        Largest item = 4294473407*/
 
         // For each batch, to the following.
         // BEWARE: the `foreachRDD` method has "at least once semantics", meaning
         // that the same data might be processed multiple times in case of failure.
-                .foreachRDD((batch, time) -> {
-                    if (streamLength[0] < n) {
-                        long batchSize = batch.count();
-                        streamLength[0] += batchSize;
-
-                        JavaPairRDD<String, Long> batchItemCounts = batch.mapToPair(item -> new Tuple2<>(item, 1L))
-                                .reduceByKey(Long::sum);
-
-                        // Collect the counts to the driver
-                        Map<String, Long> batchCounts = batchItemCounts.collectAsMap();
-                        synchronized (itemCount) {
-                            for (Map.Entry<String, Long> entry : batchCounts.entrySet()) {
-                                itemCount.put(entry.getKey(), itemCount.getOrDefault(entry.getKey(), 0L) + entry.getValue());
-                                // Debug print for each item
-                                // System.out.println("Item: " + entry.getKey() + ", Count: " + itemCount.get(entry.getKey()));
-                            }
-                        }
-
-                        if (batchSize > 0) {
-                            System.out.println("Batch size at time [" + time + "] is: " + batchSize);
-                        }
-
-                        if (streamLength[0] >= n) {
-                            stoppingSemaphore.release();
-                        }
+        .foreachRDD((batch, time) -> {
+            // this is working on the batch at time `time`.
+            if (streamLength[0] < THRESHOLD) {
+                long batchSize = batch.count();
+                streamLength[0] += batchSize;
+                // Extract the distinct items from the batch
+                Map<Long, Long> batchItems = batch
+                .mapToPair(s -> new Tuple2<>(Long.parseLong(s), 1L))
+                .reduceByKey((i1, i2) -> 1L)
+                .collectAsMap();
+                
+                // Update the streaming state
+                for (Map.Entry<Long, Long> pair : batchItems.entrySet()) {
+                    if (!histogram.containsKey(pair.getKey())) {
+                        histogram.put(pair.getKey(), 1L);
                     }
-                });
+                }
+                
+                // If we wanted, here we could run some additional code on the global histogram
+                if (batchSize > 0) {
+                    System.out.println("Batch size at time [" + time + "] is: " + batchSize);
+                }
+                
+                if (streamLength[0] >= THRESHOLD) {
+                    stoppingSemaphore.release();
+                }
+            }
+        });
+    
         // MANAGING STREAMING SPARK CONTEXT
         System.out.println("Starting streaming engine");
         sc.start();
@@ -167,49 +150,18 @@ public class G016HW3 {
         sc.stop(false, false);
         
         System.out.println("Streaming engine stopped");
+        
         // COMPUTE AND PRINT FINAL STATISTICS
         System.out.println("Number of items processed = " + streamLength[0]);
-        // Calculate and print frequent items
-        long thresholdCount = (long) Math.ceil(phi * streamLength[0]);
-        System.out.println("Threshold count = " + thresholdCount);
-        System.out.println("Frequent items (count >= " + thresholdCount + "):");
-
-        if (itemCount.isEmpty()) {
-            System.out.println("No items were counted.");
-        }
-
-        for (Map.Entry<String, Long> entry : itemCount.entrySet()) {
-           if (entry.getValue() >= thresholdCount) {
-                System.out.println(entry.getKey() + ": " + entry.getValue());
+        System.out.println("Number of distinct items = " + histogram.size());
+        
+        long max = 0L;
+        for (Long key : histogram.keySet()) {
+            if (key > max) {
+                max = key;
             }
         }
-
-        if (itemCount.isEmpty()) {
-            System.out.println("No frequent items found.");
-        }
+        
+        System.out.println("Largest item = " + max);
     }
 }
-
-
-/*Frequent items (count >= 10322): 1%
-2784604852: 41418
-434415286: 82555
-1936875793: 82726
-2486806931: 82704
-870070186: 82343
-632507218: 41194
-3620094053: 82464
-3837533304: 83318
-978604355: 41362
-3737777178: 82079
-2162156987: 41194
-2967394975: 82643
-2788970093: 82111
-195773912: 82900
-Frequent items (count >= 86590): 8%
-434415286: 86614
-1936875793: 86694
-2486806931: 86780
-3837533304: 87284
-2967394975: 86716
-195773912: 86906*/
