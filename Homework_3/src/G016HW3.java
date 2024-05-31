@@ -126,33 +126,33 @@ public class G016HW3 {
         // For each batch, to the following.
         // BEWARE: the `foreachRDD` method has "at least once semantics", meaning
         // that the same data might be processed multiple times in case of failure.
-                .foreachRDD((batch, time) -> {
-                    if (streamLength[0] < n) {
-                        long batchSize = batch.count();
-                        streamLength[0] += batchSize;
+        .foreachRDD((batch, time) -> {
+            if (streamLength[0] < n) {
+                long batchSize = batch.count();
+                streamLength[0] += batchSize;
 
-                        JavaPairRDD<String, Long> batchItemCounts = batch.mapToPair(item -> new Tuple2<>(item, 1L))
-                                .reduceByKey(Long::sum);
+                JavaPairRDD<String, Long> batchItemCounts = batch.mapToPair(item -> new Tuple2<>(item, 1L))
+                        .reduceByKey(Long::sum);
 
-                        // Collect the counts to the driver
-                        Map<String, Long> batchCounts = batchItemCounts.collectAsMap();
-                        synchronized (itemCount) {
-                            for (Map.Entry<String, Long> entry : batchCounts.entrySet()) {
-                                itemCount.put(entry.getKey(), itemCount.getOrDefault(entry.getKey(), 0L) + entry.getValue());
-                                // Debug print for each item
-                                // System.out.println("Item: " + entry.getKey() + ", Count: " + itemCount.get(entry.getKey()));
-                            }
-                        }
-
-                        if (batchSize > 0) {
-                            System.out.println("Batch size at time [" + time + "] is: " + batchSize);
-                        }
-
-                        if (streamLength[0] >= n) {
-                            stoppingSemaphore.release();
-                        }
+                // Collect the counts to the driver
+                Map<String, Long> batchCounts = batchItemCounts.collectAsMap();
+                synchronized (itemCount) {
+                    for (Map.Entry<String, Long> entry : batchCounts.entrySet()) {
+                        itemCount.put(entry.getKey(), itemCount.getOrDefault(entry.getKey(), 0L) + entry.getValue());
+                        // Debug print for each item
+                        // System.out.println("Item: " + entry.getKey() + ", Count: " + itemCount.get(entry.getKey()));
                     }
-                });
+                }
+
+                if (batchSize > 0) {
+                    System.out.println("Batch size at time [" + time + "] is: " + batchSize);
+                }
+
+                if (streamLength[0] >= n) {
+                    stoppingSemaphore.release();
+                }
+            }
+        });
         // MANAGING STREAMING SPARK CONTEXT
         System.out.println("Starting streaming engine");
         sc.start();
