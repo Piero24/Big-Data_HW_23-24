@@ -43,6 +43,9 @@ import java.util.concurrent.locks.ReentrantLock;
 
 
 
+//! Used because in vscode the sparkContext is not recognized
+//! It must be removed before the submission 
+@SuppressWarnings("deprecation")
 public class G016HW3 {
     // After how many items should we stop?
     // public static final int THRESHOLD = 1000000;
@@ -65,8 +68,8 @@ public class G016HW3 {
         // code will crash with an out of memory (because the input keeps accumulating).
 
         SparkConf conf = new SparkConf(true)
-                .setMaster("local[*]") // remove this line if running on the cluster
-                .setAppName("DistinctExample");
+        .setMaster("local[*]") //! remove this line if running on the cluster
+        .setAppName("DistinctExample");
 
         // Here, with the duration you can control how large to make your batches.
         // Beware that the data generator we are using is very fast, so the suggestion
@@ -92,12 +95,16 @@ public class G016HW3 {
         // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         int n = Integer.parseInt(args[0]);
         System.out.println("Number of items = " + n);
+
         float phi = Float.parseFloat(args[1]);
         System.out.println("Frequency threshold = " + phi);
+
         float epsilon = Float.parseFloat(args[2]);
         System.out.println("Accuracy parameter = " + epsilon);
+
         float delta = Float.parseFloat(args[3]);
         System.out.println("Confidence parameter = " + delta);
+        
         int portExp = Integer.parseInt(args[4]);
         System.out.println("Receiving data from port = " + portExp);
 
@@ -187,6 +194,8 @@ public class G016HW3 {
         if (itemCount.isEmpty()) {
             System.out.println("No frequent items found.");
         }
+
+        sc.close();
     }
 }
 
