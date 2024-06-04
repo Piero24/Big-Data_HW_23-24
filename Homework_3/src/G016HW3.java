@@ -6,9 +6,8 @@
 // Date: June 2024
 
 // Command for execute the homework from terminal:
-// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/TestN15-input.txt 3 5 2
-// -XX:ReservedCodeCacheSize=2048m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/artificial1M_9_100.csv 10 200 4
-// -XX:ReservedCodeCacheSize=2048m -Dspark.master="local[*]" G016HW2 ./Homework_2/Data/uber-large.csv 3 100 16
+// -XX:ReservedCodeCacheSize=256m -Dspark.master="local[*]" G016HW3 1000000 0.01 0.2 0.2 8888
+// -XX:ReservedCodeCacheSize=2048m -Dspark.master="local[*]" G016HW3 1000000 0.01 0.2 0.2 8888
 
 // import java.util.*;
 // import java.io.IOException;
@@ -25,6 +24,7 @@
 import org.apache.hadoop.util.hash.Hash;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.StorageLevels;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -32,14 +32,11 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import scala.Tuple2;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.*;
 
 
 
@@ -49,7 +46,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class G016HW3 {
     // After how many items should we stop?
     // public static final int THRESHOLD = 1000000;
-
 
     /**
      * 
@@ -114,7 +110,7 @@ public class G016HW3 {
         long[] streamLength = new long[1]; // Stream length (an array to be passed by reference)
         streamLength[0]=0L;
         HashMap<Long, Long> histogram = new HashMap<>(); // Hash Table for the distinct elements
-        HashMap<String, Long> itemCount = new HashMap<>();
+        HashMap<Long, Long> trueFrequent = new HashMap<>();
         // CODE TO PROCESS AN UNBOUNDED STREAM OF DATA IN BATCHES
         sc.socketTextStream("algo.dei.unipd.it", portExp, StorageLevels.MEMORY_AND_DISK)
 
@@ -136,18 +132,24 @@ public class G016HW3 {
         .foreachRDD((batch, time) -> {
             if (streamLength[0] < n) {
                 long batchSize = batch.count();
-                streamLength[0] += batchSize;
+                long remaining = n - streamLength[0];
 
+                if (batchSize > remaining) {
+                    batch = batch.zipWithIndex().filter(t -> t._2 < remaining).map(t -> t._1);
+                    batchSize = remaining;
+                }
+                streamLength[0] += batchSize;
                 JavaPairRDD<String, Long> batchItemCounts = batch.mapToPair(item -> new Tuple2<>(item, 1L))
                         .reduceByKey(Long::sum);
 
                 // Collect the counts to the driver
                 Map<String, Long> batchCounts = batchItemCounts.collectAsMap();
-                synchronized (itemCount) {
+                synchronized (histogram) {
                     for (Map.Entry<String, Long> entry : batchCounts.entrySet()) {
-                        itemCount.put(entry.getKey(), itemCount.getOrDefault(entry.getKey(), 0L) + entry.getValue());
+                        Long key = Long.parseLong(entry.getKey()); // Parse the key from String to Long
+                        histogram.put(key, histogram.getOrDefault(key, 0L) + entry.getValue());
                         // Debug print for each item
-                        // System.out.println("Item: " + entry.getKey() + ", Count: " + itemCount.get(entry.getKey()));
+                        // System.out.println("Item: " + entry.getKey() + ", Count: " + histogram.get(key));
                     }
                 }
 
@@ -181,25 +183,67 @@ public class G016HW3 {
         System.out.println("Threshold count = " + thresholdCount);
         System.out.println("Frequent items (count >= " + thresholdCount + "):");
 
-        if (itemCount.isEmpty()) {
+        if (histogram.isEmpty()) {
             System.out.println("No items were counted.");
         }
 
-        for (Map.Entry<String, Long> entry : itemCount.entrySet()) {
+        for (Map.Entry<Long, Long> entry : histogram.entrySet()) {
            if (entry.getValue() >= thresholdCount) {
-                System.out.println(entry.getKey() + ": " + entry.getValue());
+                trueFrequent.put(entry.getKey(),entry.getValue());
             }
         }
 
-        if (itemCount.isEmpty()) {
+        long first = -1;
+
+        List<Long> keys = new ArrayList<>(trueFrequent.keySet());
+        Collections.sort(keys);
+
+        for (Long key : keys) {
+            if (key > first) {
+                // print or process the entry
+                System.out.println(key + " -> " + trueFrequent.get(key));
+            }
+        }
+
+        if (histogram.isEmpty()) {
             System.out.println("No frequent items found.");
         }
 
         sc.close();
     }
+
+    /**
+     * 
+     *
+     * @param args 
+     */
+    public static List<String> reservoirSampling(JavaRDD<String> batch, List<String> sample, float phi) {
+    
+        double m = 1/phi;
+
+        for (int i = 0; i < batch.count(); i++) {
+            if (i < m) {
+                sample.add(batch.take(i).get(i));
+
+            } else {
+
+                double probability = (double) m / i;
+                double random = Math.random();
+
+                if (random < probability) {
+                    int randomIndex = (int) Math.floor(Math.random() * i);
+                    sample.remove(randomIndex);
+                    sample.add(batch.take(i).get(i));
+                }
+
+            }
+        }
+
+        return sample;
+    }
 }
 
-
+// 1000000 0.01 0.2 0.2 8888
 /*Frequent items (count >= 10322): 1%
 2784604852: 41418
 434415286: 82555
