@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.*;
-import java.util.List;
 
 
 
@@ -114,7 +113,10 @@ public class G016HW3 {
         HashMap<Long, Long> histogram = new HashMap<>(); // Hash Table for the distinct elements
         HashMap<Long, Long> trueFrequent = new HashMap<>();
         int m = (int) Math.ceil(1 / phi);
-        List<String> sample = new ArrayList<>();
+        double r = Math.log(1/(delta*phi))/epsilon;
+        List<Long> sample = new ArrayList<>();
+        HashMap<Long, Long> stickySample = new HashMap<>();
+
 
         // CODE TO PROCESS AN UNBOUNDED STREAM OF DATA IN BATCHES
         sc.socketTextStream("algo.dei.unipd.it", portExp, StorageLevels.MEMORY_AND_DISK)
@@ -162,17 +164,30 @@ public class G016HW3 {
                 List<String> batchItems = batch.collect(); // Collect batch items to a list
                 for (int i = 0; i < batchSize; i++) {
                     long globalIndex = streamLength[0] - batchSize + i; // Index in the entire stream
+                    long batchLong = Long.parseLong(batchItems.get(i));
                     if (globalIndex < m) {
-                        sample.add(batchItems.get(i));
+                        sample.add(batchLong);
                     } else {
                         double probability = (double) m / (globalIndex + 1);
                         double random = Math.random();
                         if (random < probability) {
                             int randomIndex = (int) Math.floor(Math.random() * m);
-                            sample.set(randomIndex, batchItems.get(i));
+                            sample.set(randomIndex, batchLong);
+                        }
+                    }
+
+                    // Sticky sampling
+                    if (stickySample.containsKey(batchLong)) {
+                        stickySample.put(batchLong, stickySample.get(batchLong) + 1);
+                    } else {
+                        double stickyProbability = r / n;
+                        double stickyRandom = Math.random();
+                        if (stickyRandom < stickyProbability) {
+                            stickySample.put(batchLong, 1L);
                         }
                     }
                 }
+                
 
                 if (batchSize > 0) {
                     System.out.println("Batch size at time [" + time + "] is: " + batchSize);
@@ -230,10 +245,95 @@ public class G016HW3 {
             System.out.println("No frequent items found.");
             
         } else {
-            System.out.println("N Frequent Items: " + trueFrequent.size());
+            System.out.println("N True Frequent Items: " + trueFrequent.size());
+        }
+
+        System.out.println("M: " + m);
+        System.out.println("N Frequent Items Estimated by Reservoir Sampling before removal: " + sample.size());
+        
+
+        // List<List<Long>> groupedLists = groupLongs(sample);
+
+        // for (List<Long> list : groupedLists) {
+        //     System.out.println("-------------------------------------------------------------------");
+        //     for (Long item : list) {
+        //         System.out.println(item);
+        //     }
+        // }
+
+        Set<Long> set = new HashSet<>(sample);
+        sample.clear();
+        sample.addAll(set);
+
+        Collections.sort(sample);
+
+        for (Long item : sample) {
+            boolean found = false;
+
+            for (long key : trueFrequent.keySet())
+                if (item == key)
+                    found = true;
+                    
+            if (!found)
+                System.out.println(item + " -");
+            else
+                System.out.println(item + " +");
+        }
+
+        //The estimated frequent items, in increasing order (one item per line).
+        // Next to each item print a "+" if the item is a true freuent one,and "-" otherwise
+        System.out.println("N Frequent Items Estimated by Reservoir Sampling: " + sample.size());
+
+        // At the end, return all items in stickySample with frequency >= (phi - epsilon) * n
+        List<Long> frequentItems = new ArrayList<>();
+        for (Map.Entry<Long, Long> entry : stickySample.entrySet()) {
+            if (entry.getValue() >= (phi - epsilon) * n) {
+                frequentItems.add(entry.getKey());
+            }
+        }
+
+        System.out.println("r: " + r);
+        System.out.println("Hash Table size by Sticky Sampling: " + stickySample.size());
+        System.out.println("N Frequent Items Estimated by Sticky Sampling: " + frequentItems.size());
+
+        System.out.println("Sticky Sampling : ");
+        
+        Collections.sort(frequentItems);
+
+        for (Long item : frequentItems) {
+            boolean found = false;
+
+            for (long key : trueFrequent.keySet())
+                if (item == key)
+                    found = true;
+                    
+            if (!found)
+                System.out.println(item + " -");
+            else
+                System.out.println(item + " +");
         }
 
         sc.close();
+    }
+
+
+    public static List<List<Long>> groupLongs(List<Long> longList) {
+        // Mappa per memorizzare i gruppi di long
+        Map<Long, List<Long>> longMap = new HashMap<>();
+        
+        // Popola la mappa
+        for (Long num : longList) {
+            if (longMap.containsKey(num)) {
+                longMap.get(num).add(num);
+            } else {
+                List<Long> newList = new ArrayList<>();
+                newList.add(num);
+                longMap.put(num, newList);
+            }
+        }
+        
+        // Crea una lista di liste dai valori della mappa
+        return new ArrayList<>(longMap.values());
     }
 }
 
