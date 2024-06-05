@@ -21,6 +21,7 @@
 // import org.apache.spark.api.java.JavaSparkContext;
 // import org.apache.spark.broadcast.Broadcast;
 
+//import org.apache.arrow.flatbuf.List;
 import org.apache.hadoop.util.hash.Hash;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -37,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.*;
+import java.util.List;
 
 
 
@@ -111,6 +113,9 @@ public class G016HW3 {
         streamLength[0]=0L;
         HashMap<Long, Long> histogram = new HashMap<>(); // Hash Table for the distinct elements
         HashMap<Long, Long> trueFrequent = new HashMap<>();
+        int m = (int) Math.ceil(1 / phi);
+        List<String> sample = new ArrayList<>();
+
         // CODE TO PROCESS AN UNBOUNDED STREAM OF DATA IN BATCHES
         sc.socketTextStream("algo.dei.unipd.it", portExp, StorageLevels.MEMORY_AND_DISK)
 
@@ -139,6 +144,8 @@ public class G016HW3 {
                     batchSize = remaining;
                 }
                 streamLength[0] += batchSize;
+
+                // Update histogram
                 JavaPairRDD<String, Long> batchItemCounts = batch.mapToPair(item -> new Tuple2<>(item, 1L))
                         .reduceByKey(Long::sum);
 
@@ -148,8 +155,22 @@ public class G016HW3 {
                     for (Map.Entry<String, Long> entry : batchCounts.entrySet()) {
                         Long key = Long.parseLong(entry.getKey()); // Parse the key from String to Long
                         histogram.put(key, histogram.getOrDefault(key, 0L) + entry.getValue());
-                        // Debug print for each item
-                        // System.out.println("Item: " + entry.getKey() + ", Count: " + histogram.get(key));
+                    }
+                }
+
+                // Reservoir sampling
+                List<String> batchItems = batch.collect(); // Collect batch items to a list
+                for (int i = 0; i < batchSize; i++) {
+                    long globalIndex = streamLength[0] - batchSize + i; // Index in the entire stream
+                    if (globalIndex < m) {
+                        sample.add(batchItems.get(i));
+                    } else {
+                        double probability = (double) m / (globalIndex + 1);
+                        double random = Math.random();
+                        if (random < probability) {
+                            int randomIndex = (int) Math.floor(Math.random() * m);
+                            sample.set(randomIndex, batchItems.get(i));
+                        }
                     }
                 }
 
@@ -207,39 +228,12 @@ public class G016HW3 {
 
         if (histogram.isEmpty()) {
             System.out.println("No frequent items found.");
+            
+        } else {
+            System.out.println("N Frequent Items: " + trueFrequent.size());
         }
 
         sc.close();
-    }
-
-    /**
-     * 
-     *
-     * @param args 
-     */
-    public static List<String> reservoirSampling(JavaRDD<String> batch, List<String> sample, float phi) {
-    
-        double m = 1/phi;
-
-        for (int i = 0; i < batch.count(); i++) {
-            if (i < m) {
-                sample.add(batch.take(i).get(i));
-
-            } else {
-
-                double probability = (double) m / i;
-                double random = Math.random();
-
-                if (random < probability) {
-                    int randomIndex = (int) Math.floor(Math.random() * i);
-                    sample.remove(randomIndex);
-                    sample.add(batch.take(i).get(i));
-                }
-
-            }
-        }
-
-        return sample;
     }
 }
 
